@@ -1,35 +1,22 @@
 import javafx.application.Application;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
-import database.DatabaseConnection;
 
 public class Main extends Application {
-
     @Override
     public void start(Stage stage) throws Exception {
-        // Test database
-        DatabaseConnection.createTables();
+        Parent root = FXMLLoader.load(getClass().getResource("/fxml/main.fxml"));
+        Scene scene = new Scene(root);
+        stage.setTitle("Payroll Attendance");
 
-        //test UI
-        VBox root = new VBox(20);
-        root.setStyle("-fx-padding: 50; -fx-alignment: center;");
 
-        Label label = new Label("Backend is working!");
-        label.setStyle("-fx-font-size: 20px;");
 
-        Button testButton = new Button("Test Database Connection");
-        testButton.setOnAction(e -> {
-            DatabaseConnection.testConnection();
-            label.setText("Database connection tested! Check console.");
-        });
 
-        root.getChildren().addAll(label, testButton);
-
-        Scene scene = new Scene(root, 600, 400);
-        stage.setTitle("HR Payroll - Backend Testing");
+        stage.setWidth(1200);
+        stage.setHeight(800);
+        stage.setResizable(true);  // This allows manual resize
         stage.setScene(scene);
         stage.show();
     }

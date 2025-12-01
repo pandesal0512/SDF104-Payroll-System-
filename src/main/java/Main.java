@@ -16,7 +16,7 @@ public class Main extends Application {
 
         stage.setWidth(1200);
         stage.setHeight(800);
-        stage.setResizable(true);  // This allows manual resize
+        stage.setResizable(true);  // allows manual resize
         stage.setScene(scene);
         stage.show();
     }

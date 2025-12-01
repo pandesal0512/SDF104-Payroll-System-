@@ -28,38 +28,38 @@
    <left>
       <VBox alignment="CENTER" prefHeight="984.0" prefWidth="215.0" spacing="50.0" style="-fx-border-color: #bebebe; -fx-border-width: 2.3;" BorderPane.alignment="TOP_CENTER">
          <children>
-            <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" prefHeight="50.0" text="Dashboard">
+            <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#loadDashboard" prefHeight="50.0" text="Dashboard">
                <font>
                   <Font size="23.0" />
                </font>
             </Button>
-            <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" prefHeight="50.0" text="Employees">
+            <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#loadEmployees" prefHeight="50.0" text="Employees">
                <font>
                   <Font size="23.0" />
                </font>
             </Button>
-            <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" prefHeight="50.0" text="Attendance">
+            <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#loadAttendance" prefHeight="50.0" text="Attendance">
                <font>
                   <Font size="23.0" />
                </font>
             </Button>
-            <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" prefHeight="50.0" text="Payroll">
+            <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#loadPayroll" prefHeight="50.0" text="Payroll">
                <font>
                   <Font size="23.0" />
                </font>
             </Button>
-            <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" prefHeight="50.0" text="Departments">
+            <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#loadDepartments" prefHeight="50.0" text="Departments">
                <font>
                   <Font size="23.0" />
                </font>
             </Button>
-            <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" prefHeight="50.0" text="Positions">
+            <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#loadPositions" prefHeight="50.0" text="Positions">
                <font>
                   <Font size="23.0" />
                </font>
             </Button>
             <Region prefHeight="200.0" prefWidth="200.0" />
-            <Button alignment="CENTER" maxWidth="1.7976931348623157E308" mnemonicParsing="false" prefHeight="50.0" text="Exit">
+            <Button alignment="CENTER" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#handleExit" prefHeight="50.0" text="Exit">
                <font>
                   <Font size="23.0" />
                </font>

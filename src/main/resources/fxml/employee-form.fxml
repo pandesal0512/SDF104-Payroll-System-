@@ -1,14 +1,137 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import java.lang.*?>
-<?import java.util.*?>
-<?import javafx.scene.*?>
-<?import javafx.scene.control.*?>
-<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.DatePicker?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.RowConstraints?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
 
-<AnchorPane xmlns="http://javafx.com/javafx"
-            xmlns:fx="http://javafx.com/fxml"
-            fx:controller="CONTROLLER_NAME"
-            prefHeight="400.0" prefWidth="600.0">
+<ScrollPane fitToWidth="true" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controllers.EmployeeFormController">
+    <content>
+        <VBox spacing="20.0" style="-fx-background-color: white;">
+            <padding>
+                <Insets bottom="20.0" left="30.0" right="30.0" top="20.0" />
+            </padding>
 
-</AnchorPane>
+            <children>
+
+                <Label fx:id="formTitleLabel" style="-fx-font-weight: bold;" text="➕ ADD NEW EMPLOYEE">
+                    <font>
+                        <Font size="24.0" />
+                    </font>
+                </Label>
+
+
+                <VBox spacing="10.0">
+                    <children>
+                        <Label style="-fx-font-weight: bold; -fx-font-size: 16px;" text="Personal Information" />
+
+                        <GridPane hgap="10.0" vgap="10.0">
+                            <columnConstraints>
+                                <ColumnConstraints percentWidth="30" />
+                                <ColumnConstraints percentWidth="70" />
+                            </columnConstraints>
+
+
+                            <Label text="Full Name:" GridPane.rowIndex="0" />
+                            <TextField fx:id="nameField" promptText="Enter full name" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+
+
+                            <Label text="Age:" GridPane.rowIndex="1" />
+                            <TextField fx:id="ageField" prefWidth="100.0" promptText="Enter age" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+
+
+                            <Label text="Contact Info:" GridPane.rowIndex="2" />
+                            <TextField fx:id="contactField" promptText="Email or phone number" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+                     <rowConstraints>
+                        <RowConstraints />
+                        <RowConstraints />
+                        <RowConstraints />
+                     </rowConstraints>
+                        </GridPane>
+                    </children>
+                </VBox>
+
+
+                <VBox spacing="10.0">
+                    <children>
+                        <Label style="-fx-font-weight: bold; -fx-font-size: 16px;" text="Employment Details" />
+
+                        <GridPane hgap="10.0" vgap="10.0">
+                            <columnConstraints>
+                                <ColumnConstraints percentWidth="30" />
+                                <ColumnConstraints percentWidth="70" />
+                            </columnConstraints>
+
+
+                            <Label text="Department:" GridPane.rowIndex="0" />
+                            <ComboBox fx:id="departmentCombo" maxWidth="Infinity" promptText="Select Department" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+
+
+                            <Label text="Position:" GridPane.rowIndex="1" />
+                            <ComboBox fx:id="positionCombo" maxWidth="Infinity" promptText="Select Position" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+
+
+                            <Label text="Hire Date:" GridPane.rowIndex="2" />
+                            <DatePicker fx:id="hireDatePicker" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+
+
+                            <Label text="Status:" GridPane.rowIndex="3" />
+                            <ComboBox fx:id="statusCombo" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.rowIndex="3" />
+                     <rowConstraints>
+                        <RowConstraints />
+                        <RowConstraints />
+                        <RowConstraints />
+                        <RowConstraints />
+                     </rowConstraints>
+                        </GridPane>
+                    </children>
+                </VBox>
+
+
+                <VBox alignment="CENTER" spacing="10.0" style="-fx-border-color: #cccccc; -fx-border-radius: 5; -fx-padding: 15;">
+                    <children>
+                        <Label style="-fx-font-weight: bold; -fx-font-size: 16px;" text="Employee QR Code / ID" />
+
+
+                        <ImageView fx:id="qrImageView" fitHeight="200.0" fitWidth="200.0" preserveRatio="true" />
+
+
+                        <Label fx:id="qrCodeLabel" style="-fx-font-size: 14px; -fx-font-weight: bold;" text="EMP-2024-XXX-NAME" />
+
+                        <Label style="-fx-font-size: 11px; -fx-text-fill: gray;" text="(Employee types this for attendance)" />
+
+
+                        <HBox alignment="CENTER" spacing="10.0">
+                            <children>
+                                <Button onAction="#handleRegenerateQR" text="🔄 Regenerate" />
+                                <Button onAction="#handleDownloadQR" text="💾 Download QR" />
+                            </children>
+                        </HBox>
+                    </children>
+                </VBox>
+
+
+                <HBox alignment="CENTER" spacing="15.0">
+                    <children>
+                        <Button onAction="#handleSave" style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10 30;" text="💾 Save Employee" />
+                        <Button onAction="#handleCancel" style="-fx-background-color: #f44336; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10 30;" text="❌ Cancel" />
+                    </children>
+                    <VBox.margin>
+                        <Insets top="10.0" />
+                    </VBox.margin>
+                </HBox>
+
+            </children>
+        </VBox>
+    </content>
+</ScrollPane>

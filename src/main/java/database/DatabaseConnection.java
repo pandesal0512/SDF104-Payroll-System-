@@ -96,9 +96,9 @@ public class DatabaseConnection {
         }
     }
 
-    /**
-     * Test the database connection
-     */
+
+     //Test database connection
+
     public static void testConnection() {
         try {
             Connection conn = getConnection();

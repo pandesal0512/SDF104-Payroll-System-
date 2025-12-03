@@ -1,119 +1,100 @@
 package controllers;
 
+import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
-import javafx.scene.Parent;
-import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
 import javafx.scene.layout.StackPane;
-import javafx.stage.Stage;
+import javafx.scene.Node;
+import models.User;
 
 import java.io.IOException;
 
 public class MainController {
 
-    @FXML
-    private StackPane contentArea;
+    @FXML private StackPane contentArea;
 
-    /**
-     * Initialize method - called after FXML is loaded
-     */
+    // Buttons for highlighting
+    @FXML private Button dashboardButton;
+    @FXML private Button employeesButton;
+    @FXML private Button attendanceButton;
+    @FXML private Button payrollButton;
+    @FXML private Button departmentsButton;
+
+    private User currentUser;
+    private Button activeButton; // Track currently active button
+
     @FXML
     public void initialize() {
         // Load dashboard by default
         loadDashboard();
     }
 
-    /**
-     * Load Dashboard view
-     */
+    public void setCurrentUser(User user) {
+        this.currentUser = user;
+        System.out.println("Logged in as: " + user.getFullName() + " (" + user.getRole() + ")");
+    }
+
     @FXML
     private void loadDashboard() {
         loadView("/fxml/dashboard.fxml");
+        setActiveButton(dashboardButton);
     }
 
-    /**
-     * Load Employees view
-     */
     @FXML
     private void loadEmployees() {
         loadView("/fxml/employees.fxml");
+        setActiveButton(employeesButton);
     }
 
-    /**
-     * Load Attendance view
-     */
     @FXML
     private void loadAttendance() {
         loadView("/fxml/attendance.fxml");
+        setActiveButton(attendanceButton);
     }
 
-    /**
-     * Load Payroll view
-     */
     @FXML
     private void loadPayroll() {
         loadView("/fxml/payroll.fxml");
+        setActiveButton(payrollButton);
     }
 
-    /**
-     * Load Departments view
-     */
     @FXML
     private void loadDepartments() {
-        loadView("/fxml/departments.fxml");
+        loadView("/fxml/departments-positions.fxml");
+        setActiveButton(departmentsButton);
     }
 
-    /**
-     * Load Positions view
-     */
     @FXML
-    private void loadPositions() {
-        loadView("/fxml/positions.fxml");
+    private void handleExit() {
+        Platform.exit();
     }
 
     /**
-     * Helper method to load any FXML view into the content area
+     * Load FXML view into content area
      */
     private void loadView(String fxmlPath) {
         try {
-            Parent view = FXMLLoader.load(getClass().getResource(fxmlPath));
-            contentArea.getChildren().clear();
-            contentArea.getChildren().add(view);
+            FXMLLoader loader = new FXMLLoader(getClass().getResource(fxmlPath));
+            Node view = loader.load();
+            contentArea.getChildren().setAll(view);
         } catch (IOException e) {
+            System.err.println("Failed to load view: " + fxmlPath);
             e.printStackTrace();
-            showError("Failed to load view", "Could not load " + fxmlPath);
         }
     }
 
     /**
-     * Exit application
+     * Highlight the active button
      */
-    @FXML
-    private void handleExit() {
-        // Get the current stage
-        Stage stage = (Stage) contentArea.getScene().getWindow();
+    private void setActiveButton(Button button) {
+        // Reset previous button
+        if (activeButton != null) {
+            activeButton.setStyle("-fx-background-color: transparent; -fx-text-fill: #333333;");
+        }
 
-        // Confirm exit
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-        alert.setTitle("Exit Confirmation");
-        alert.setHeaderText("Exit Application");
-        alert.setContentText("Are you sure you want to exit?");
-
-        alert.showAndWait().ifPresent(response -> {
-            if (response.getText().equals("OK")) {
-                stage.close();
-            }
-        });
-    }
-
-    /**
-     * Show error dialog
-     */
-    private void showError(String title, String message) {
-        Alert alert = new Alert(Alert.AlertType.ERROR);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(message);
-        alert.showAndWait();
+        // Highlight new button
+        button.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold;");
+        activeButton = button;
     }
 }

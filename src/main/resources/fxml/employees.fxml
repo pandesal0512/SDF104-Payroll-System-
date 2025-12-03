@@ -10,59 +10,60 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<VBox xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controllers.EmployeeController">
-    <children>
+<VBox spacing="15.0"
+      xmlns="http://javafx.com/javafx/24.0.1"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="controllers.EmployeeController">
+    <padding>
+        <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
+    </padding>
 
-        <Label alignment="CENTER" maxWidth="1.7976931348623157E308" text="👥 EMPLOYEES MANAGEMENT">
+    <children>
+        <!-- Title -->
+        <Label alignment="CENTER" maxWidth="Infinity" text="👥 EMPLOYEES MANAGEMENT">
             <font>
-                <Font name="Arial Bold" size="12.0" />
+                <Font name="Arial Bold" size="20.0" />
             </font>
-            <padding>
-                <Insets top="10.0" />
-            </padding>
         </Label>
 
-
-        <HBox prefHeight="45.0" prefWidth="600.0">
+        <!-- Search and Action Buttons -->
+        <HBox prefHeight="45.0" prefWidth="600.0" spacing="10.0">
             <children>
-                <TextField fx:id="searchField" prefHeight="25.0" prefWidth="274.0" promptText="Search: " />
-                <Button fx:id="employeeButton" mnemonicParsing="false" text="Add Employee">
-                    <HBox.margin>
-                        <Insets left="20.0" right="5.0" />
-                    </HBox.margin>
-                </Button>
-                <Button fx:id="exportButton" mnemonicParsing="false" text="Export">
-                    <HBox.margin>
-                        <Insets left="20.0" right="5.0" />
-                    </HBox.margin>
-                </Button>
+                <TextField fx:id="searchField" prefHeight="25.0" prefWidth="274.0" promptText="Search employees..." />
+                <Button onAction="#handleAddEmployee" text="➕ Add Employee"
+                        style="-fx-background-color: #4CAF50; -fx-text-fill: white;" />
+                <Button onAction="#handleCopyQRCode" text="📋 Copy QR Code"
+                        style="-fx-background-color: #2196F3; -fx-text-fill: white;" />
+                <Button fx:id="exportButton" mnemonicParsing="false" onAction="#handleExport" text="📥 Export" />
             </children>
             <padding>
-                <Insets bottom="10.0" left="20.0" top="10.0" />
+                <Insets bottom="10.0" left="20.0" top="10.0" right="20.0" />
             </padding>
         </HBox>
 
-
-        <TableView prefHeight="236.0" prefWidth="567.0" VBox.vgrow="NEVER">
+        <!-- Employee Table -->
+        <TableView fx:id="employeeTable" VBox.vgrow="ALWAYS">
             <columns>
-                <TableColumn fx:id="idColumn" prefWidth="75.0" text="ID" />
-                <TableColumn fx:id="qrColumn" prefWidth="139.3333282470703" text="QR Code" />
-                <TableColumn fx:id="nameColumn" prefWidth="156.66668701171875" text="Name" />
-                <TableColumn fx:id="positionColumn" prefWidth="68.33331298828125" text="Position" />
-                <TableColumn fx:id="deptColumn" prefWidth="67.66668701171875" text="Dept" />
-                <TableColumn fx:id="statusColumn" prefWidth="55.0" text="Status" />
+                <TableColumn fx:id="idColumn" prefWidth="60.0" text="ID" />
+                <TableColumn fx:id="qrColumn" prefWidth="180.0" text="QR Code" />
+                <TableColumn fx:id="nameColumn" prefWidth="200.0" text="Name" />
+                <TableColumn fx:id="positionColumn" prefWidth="150.0" text="Position" />
+                <TableColumn fx:id="deptColumn" prefWidth="150.0" text="Department" />
+                <TableColumn fx:id="statusColumn" prefWidth="100.0" text="Status" />
             </columns>
-            <VBox.margin>
-                <Insets left="20.0" right="20.0" />
-            </VBox.margin>
+            <placeholder>
+                <Label text="No employees found" />
+            </placeholder>
         </TableView>
 
-
+        <!-- Pagination -->
         <HBox alignment="CENTER_LEFT" prefHeight="50.0" prefWidth="600.0" spacing="10.0">
             <children>
-                <Label text="Showing 1-50 of 150 employees" />
-                <Button fx:id="previousButton" mnemonicParsing="false" text="&lt; Previous" />
-                <Button fx:id="nextButton" mnemonicParsing="false" text="Next &gt;" />
+                <Label fx:id="paginationLabel" text="Showing employees" />
+                <Button onAction="#handleEditEmployee" text="✏️ Edit"
+                        style="-fx-background-color: #FF9800; -fx-text-fill: white;" />
+                <Button onAction="#handleDeleteEmployee" text="🗑️ Delete"
+                        style="-fx-background-color: #f44336; -fx-text-fill: white;" />
             </children>
             <padding>
                 <Insets bottom="10.0" left="20.0" top="10.0" />

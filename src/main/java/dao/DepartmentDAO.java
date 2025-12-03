@@ -10,7 +10,7 @@ import java.util.List;
 public class DepartmentDAO {
 
     /**
-     * Add a new department to the database
+     * Add a new department
      */
     public void addDepartment(Department department) throws SQLException {
         String sql = "INSERT INTO departments (name, description) VALUES (?, ?)";
@@ -22,7 +22,7 @@ public class DepartmentDAO {
             stmt.setString(2, department.getDescription());
             stmt.executeUpdate();
 
-            System.out.println(" Department added: " + department.getName());
+            System.out.println("Department added: " + department.getName());
         }
     }
 
@@ -46,7 +46,7 @@ public class DepartmentDAO {
                 );
             }
         }
-        return null;  // Not found
+        return null;
     }
 
     /**
@@ -54,7 +54,7 @@ public class DepartmentDAO {
      */
     public List<Department> getAllDepartments() throws SQLException {
         List<Department> departments = new ArrayList<>();
-        String sql = "SELECT * FROM departments";
+        String sql = "SELECT * FROM departments ORDER BY name ASC";
 
         try (Connection conn = DatabaseConnection.getConnection();
              Statement stmt = conn.createStatement();
@@ -104,5 +104,43 @@ public class DepartmentDAO {
 
             System.out.println("Department deleted (ID: " + id + ")");
         }
+    }
+
+    /**
+     * Check if department name already exists
+     */
+    public boolean departmentExists(String name) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM departments WHERE name = ?";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, name);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                return rs.getInt(1) > 0;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Get count of employees in a department
+     */
+    public int getEmployeeCountByDepartment(int departmentId) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM employees WHERE department_id = ?";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, departmentId);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
+        }
+        return 0;
     }
 }

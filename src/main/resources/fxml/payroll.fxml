@@ -1,14 +1,161 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import java.lang.*?>
-<?import java.util.*?>
-<?import javafx.scene.*?>
+<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Font?>
 
-<AnchorPane xmlns="http://javafx.com/javafx"
-            xmlns:fx="http://javafx.com/fxml"
-            fx:controller="CONTROLLER_NAME"
-            prefHeight="400.0" prefWidth="600.0">
+<VBox spacing="15.0" xmlns="http://javafx.com/javafx/24.0.1"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="controllers.PayrollController">
+    <padding>
+        <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
+    </padding>
 
-</AnchorPane>
+    <children>
+        <!-- Title -->
+        <Label alignment="CENTER" maxWidth="Infinity" text="💰 PAYROLL MANAGEMENT">
+            <font>
+                <Font name="Arial Bold" size="20.0" />
+            </font>
+        </Label>
+
+        <!-- Generate Payroll Section -->
+        <VBox spacing="10.0" style="-fx-border-color: #cccccc; -fx-border-radius: 5; -fx-padding: 15; -fx-background-color: #f9f9f9;">
+            <Label style="-fx-font-weight: bold; -fx-font-size: 16px;" text="Generate Payroll" />
+
+            <GridPane hgap="15.0" vgap="10.0">
+                <columnConstraints>
+                    <ColumnConstraints percentWidth="25" />
+                    <ColumnConstraints percentWidth="25" />
+                    <ColumnConstraints percentWidth="25" />
+                    <ColumnConstraints percentWidth="25" />
+                </columnConstraints>
+
+                <!-- Month Selection -->
+                <VBox spacing="5.0" GridPane.columnIndex="0" GridPane.rowIndex="0">
+                    <Label text="Select Month:" />
+                    <ComboBox fx:id="monthCombo" maxWidth="Infinity" promptText="Month" />
+                </VBox>
+
+                <!-- Year Selection -->
+                <VBox spacing="5.0" GridPane.columnIndex="1" GridPane.rowIndex="0">
+                    <Label text="Year:" />
+                    <ComboBox fx:id="yearCombo" maxWidth="Infinity" promptText="Year" />
+                </VBox>
+
+                <!-- Department Filter -->
+                <VBox spacing="5.0" GridPane.columnIndex="2" GridPane.rowIndex="0" GridPane.columnSpan="2">
+                    <Label text="Filter by Department (Optional):" />
+                    <ComboBox fx:id="departmentFilterCombo" maxWidth="Infinity" promptText="All Departments" />
+                </VBox>
+
+                <!-- Deduction Settings -->
+                <VBox spacing="5.0" GridPane.columnIndex="0" GridPane.rowIndex="1" GridPane.columnSpan="2">
+                    <Label text="Late Deduction (per occurrence):" />
+                    <TextField fx:id="lateDeductionField" promptText="₱50.00" text="50.00" />
+                </VBox>
+
+                <VBox spacing="5.0" GridPane.columnIndex="2" GridPane.rowIndex="1" GridPane.columnSpan="2">
+                    <Label text="Absent Deduction (per day):" />
+                    <TextField fx:id="absentDeductionField" promptText="₱200.00" text="200.00" />
+                </VBox>
+            </GridPane>
+
+            <!-- Action Buttons -->
+            <HBox alignment="CENTER" spacing="15.0">
+                <VBox.margin>
+                    <Insets top="10.0" />
+                </VBox.margin>
+                <Button onAction="#handleCalculatePayroll"
+                        style="-fx-background-color: #2196F3; -fx-text-fill: white; -fx-padding: 10 20;"
+                        text="📊 Calculate Payroll" />
+                <Button onAction="#handleProcessAll"
+                        style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 10 20;"
+                        text="💾 Process All" />
+                <Button onAction="#handleExportPayroll"
+                        style="-fx-background-color: #607D8B; -fx-text-fill: white; -fx-padding: 10 20;"
+                        text="📄 Export" />
+            </HBox>
+        </VBox>
+
+        <!-- Payroll Summary -->
+        <VBox spacing="10.0" style="-fx-border-color: #4CAF50; -fx-border-width: 2; -fx-border-radius: 5; -fx-padding: 15; -fx-background-color: #f1f8f4;">
+            <Label fx:id="summaryTitleLabel" style="-fx-font-weight: bold; -fx-font-size: 16px;"
+                   text="Payroll Summary" />
+
+            <GridPane hgap="20.0" vgap="8.0">
+                <columnConstraints>
+                    <ColumnConstraints percentWidth="25" />
+                    <ColumnConstraints percentWidth="25" />
+                    <ColumnConstraints percentWidth="25" />
+                    <ColumnConstraints percentWidth="25" />
+                </columnConstraints>
+
+                <VBox GridPane.columnIndex="0">
+                    <Label text="Total Employees:" style="-fx-font-size: 12px;" />
+                    <Label fx:id="totalEmployeesLabel" text="0" style="-fx-font-size: 20px; -fx-font-weight: bold;" />
+                </VBox>
+
+                <VBox GridPane.columnIndex="1">
+                    <Label text="Total Base Salary:" style="-fx-font-size: 12px;" />
+                    <Label fx:id="totalPayrollLabel" text="₱0.00" style="-fx-font-size: 20px; -fx-font-weight: bold;" />
+                </VBox>
+
+                <VBox GridPane.columnIndex="2">
+                    <Label text="Total Deductions:" style="-fx-font-size: 12px;" />
+                    <Label fx:id="totalDeductionsLabel" text="₱0.00" style="-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: #d32f2f;" />
+                </VBox>
+
+                <VBox GridPane.columnIndex="3">
+                    <Label text="Net Payroll:" style="-fx-font-size: 12px;" />
+                    <Label fx:id="netPayLabel" text="₱0.00" style="-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: #4CAF50;" />
+                </VBox>
+            </GridPane>
+        </VBox>
+
+        <!-- Employee Payroll Details -->
+        <VBox spacing="10.0" VBox.vgrow="ALWAYS">
+            <Label style="-fx-font-weight: bold; -fx-font-size: 16px;" text="Employee Payroll Details" />
+
+            <!-- Search -->
+            <HBox spacing="10.0">
+                <TextField fx:id="payrollSearchField"
+                           promptText="Search employee..."
+                           prefWidth="300.0" />
+                <Button onAction="#handleSearch" text="🔍 Search" />
+            </HBox>
+
+            <!-- Payroll Table -->
+            <TableView fx:id="payrollTable" VBox.vgrow="ALWAYS">
+                <columns>
+                    <TableColumn fx:id="qrCodeColumn" prefWidth="120.0" text="QR Code" />
+                    <TableColumn fx:id="nameColumn" prefWidth="150.0" text="Name" />
+                    <TableColumn fx:id="baseSalaryColumn" prefWidth="100.0" text="Base Salary" />
+                    <TableColumn fx:id="lateCountColumn" prefWidth="70.0" text="Late" />
+                    <TableColumn fx:id="absentCountColumn" prefWidth="70.0" text="Absent" />
+                    <TableColumn fx:id="deductionsColumn" prefWidth="100.0" text="Deductions" />
+                    <TableColumn fx:id="netPayColumn" prefWidth="100.0" text="Net Pay" />
+                    <TableColumn fx:id="notesColumn" prefWidth="150.0" text="Notes" />
+                    <TableColumn fx:id="actionsColumn" prefWidth="120.0" text="Actions" />
+                </columns>
+                <placeholder>
+                    <Label text="No payroll data. Click 'Calculate Payroll' to generate." />
+                </placeholder>
+            </TableView>
+
+            <!-- Bottom Actions -->
+            <HBox alignment="CENTER" spacing="15.0">
+                <Button onAction="#handleManualAdjustment"
+                        style="-fx-background-color: #FF9800; -fx-text-fill: white; -fx-padding: 10 20;"
+                        text="✏️ Manual Adjustment" />
+                <Button onAction="#handleViewPayslip"
+                        style="-fx-background-color: #2196F3; -fx-text-fill: white; -fx-padding: 10 20;"
+                        text="📊 View Payslip" />
+                <Button onAction="#handleSendPayslips"
+                        style="-fx-background-color: #9C27B0; -fx-text-fill: white; -fx-padding: 10 20;"
+                        text="📧 Send Payslips" />
+            </HBox>
+        </VBox>
+    </children>
+</VBox>

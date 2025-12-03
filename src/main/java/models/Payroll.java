@@ -12,11 +12,12 @@ public class Payroll {
     private int lateCount;
     private int absentCount;
     private String dateProcessed;
+    private String notes; // For manual adjustments (e.g., "Sick leave - 3 days")
 
     // Constructor 1: For creating NEW payroll records (no ID yet)
     public Payroll(int employeeId, int month, int year, double baseSalary,
                    double totalDeductions, double finalSalary, int lateCount,
-                   int absentCount, String dateProcessed) {
+                   int absentCount, String dateProcessed, String notes) {
         this.employeeId = employeeId;
         this.month = month;
         this.year = year;
@@ -26,12 +27,13 @@ public class Payroll {
         this.lateCount = lateCount;
         this.absentCount = absentCount;
         this.dateProcessed = dateProcessed;
+        this.notes = notes;
     }
 
     // Constructor 2: For loading EXISTING payroll from database (has ID)
     public Payroll(int id, int employeeId, int month, int year, double baseSalary,
                    double totalDeductions, double finalSalary, int lateCount,
-                   int absentCount, String dateProcessed) {
+                   int absentCount, String dateProcessed, String notes) {
         this.id = id;
         this.employeeId = employeeId;
         this.month = month;
@@ -42,6 +44,15 @@ public class Payroll {
         this.lateCount = lateCount;
         this.absentCount = absentCount;
         this.dateProcessed = dateProcessed;
+        this.notes = notes;
+    }
+
+    // Constructor 3: Alternative constructor for compatibility (no notes)
+    public Payroll(int id, int employeeId, int month, int year, double baseSalary,
+                   double totalDeductions, double finalSalary, int lateCount,
+                   int absentCount, String dateProcessed) {
+        this(id, employeeId, month, year, baseSalary, totalDeductions, finalSalary,
+                lateCount, absentCount, dateProcessed, "");
     }
 
     // Getters
@@ -85,6 +96,10 @@ public class Payroll {
         return dateProcessed;
     }
 
+    public String getNotes() {
+        return notes;
+    }
+
     // Setters
     public void setId(int id) {
         this.id = id;
@@ -124,5 +139,9 @@ public class Payroll {
 
     public void setDateProcessed(String dateProcessed) {
         this.dateProcessed = dateProcessed;
+    }
+
+    public void setNotes(String notes) {
+        this.notes = notes;
     }
 }

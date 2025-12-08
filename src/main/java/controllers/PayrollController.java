@@ -20,6 +20,7 @@ import java.io.PrintWriter;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
@@ -62,6 +63,8 @@ public class PayrollController {
         // Auto-load current month's payroll
         selectedMonth = DateTimeHelper.getCurrentMonth();
         selectedYear = DateTimeHelper.getCurrentYear();
+
+        // Always load from database first
         loadExistingPayroll();
     }
 
@@ -207,9 +210,9 @@ public class PayrollController {
                 if (pos == null) continue;
 
                 // Calculate hours for display
-                String startDate = selectedYear + "-" + String.format("%02d", selectedMonth) + "-01";
-                String endDate = selectedYear + "-" + String.format("%02d", selectedMonth) + "-" +
-                        LocalDate.of(selectedYear, selectedMonth, 1).lengthOfMonth();
+                YearMonth yearMonth = YearMonth.of(selectedYear, selectedMonth);
+                String startDate = yearMonth.atDay(1).toString();
+                String endDate = yearMonth.atEndOfMonth().toString();
                 double totalHours = attendanceDAO.getTotalHoursWorked(emp.getId(), startDate, endDate);
 
                 // Adjustment = final_salary - base_salary
@@ -221,6 +224,8 @@ public class PayrollController {
                         adjustment, payroll.getFinalSalary(), payroll.getNotes()
                 ));
             }
+
+            System.out.println("✓ Loaded " + payrollList.size() + " payroll records from database");
 
         } catch (SQLException e) {
             // No existing payroll, that's fine
@@ -243,7 +248,7 @@ public class PayrollController {
                     monthCombo.getValue() + " " + selectedYear);
             alert.setContentText("Payroll has been loaded from database.\n\n" +
                     "To update with latest attendance:\n" +
-                    "• Delete existing payroll records from database, OR\n" +
+                    "• Click 'Recalculate Anyway' to override, OR\n" +
                     "• Use 'Add Adjustment' for individual changes");
 
             ButtonType recalculateButton = new ButtonType("🔄 Recalculate Anyway", ButtonBar.ButtonData.OK_DONE);
@@ -264,21 +269,28 @@ public class PayrollController {
                     employeeDAO.getEmployeesByDepartment(departmentFilterCombo.getValue().getId()) :
                     employeeDAO.getActiveEmployees();
 
+            // FIX: Create YearMonth for the selected period
+            YearMonth payrollPeriod = YearMonth.of(selectedYear, selectedMonth);
+            LocalDate payrollStart = payrollPeriod.atDay(1);
+            LocalDate payrollEnd = payrollPeriod.atEndOfMonth();
+
             int processed = 0;
             for (Employee emp : employees) {
                 if (!"active".equals(emp.getStatus())) continue;
 
                 LocalDate hireDate = LocalDate.parse(emp.getHireDate());
-                LocalDate payrollDate = LocalDate.of(selectedYear, selectedMonth, 1);
 
-                if (hireDate.isAfter(payrollDate)) continue;
+                // FIX: Employee should be included if hired on or before the LAST day of the payroll month
+                if (hireDate.isAfter(payrollEnd)) {
+                    System.out.println("Skipping " + emp.getName() + " - hired after payroll period");
+                    continue;
+                }
 
                 Position pos = positionDAO.getPositionById(emp.getPositionId());
                 if (pos == null) continue;
 
-                String startDate = selectedYear + "-" + String.format("%02d", selectedMonth) + "-01";
-                String endDate = selectedYear + "-" + String.format("%02d", selectedMonth) + "-" +
-                        LocalDate.of(selectedYear, selectedMonth, 1).lengthOfMonth();
+                String startDate = payrollStart.toString();
+                String endDate = payrollEnd.toString();
 
                 double totalHours = attendanceDAO.getTotalHoursWorked(emp.getId(), startDate, endDate);
                 double hourlyRate = pos.getHourlyRate();
@@ -298,7 +310,8 @@ public class PayrollController {
             } else {
                 showInfo("✅ Payroll calculated for " + processed + " employees!\n\n" +
                         "Based on: Hours Worked × Hourly Rate\n\n" +
-                        "Click 'Process All' to save to database.");
+                        "⚠️ Click 'Process All' to save to database.\n" +
+                        "Data will NOT persist until you click 'Process All'!");
             }
 
         } catch (SQLException e) {
@@ -322,31 +335,53 @@ public class PayrollController {
         try {
             String today = DateTimeHelper.getCurrentDate();
             int processed = 0;
+            int updated = 0;
             int skipped = 0;
 
             for (PayrollDisplay pd : payrollList) {
-                if (payrollDAO.isPayrollProcessed(pd.getEmployeeId(), selectedMonth, selectedYear)) {
-                    skipped++;
-                    continue;
-                }
-
-                Payroll payroll = new Payroll(
-                        pd.getEmployeeId(), selectedMonth, selectedYear,
-                        pd.getBaseSalary(), 0.0, pd.getNetPay(),
-                        0, 0, today, pd.getNotes()
+                // Check if payroll already exists
+                Payroll existing = payrollDAO.getPayrollByEmployeeAndPeriod(
+                        pd.getEmployeeId(), selectedMonth, selectedYear
                 );
 
-                payrollDAO.addPayroll(payroll);
-                processed++;
+                if (existing != null) {
+                    // UPDATE existing payroll
+                    existing.setBaseSalary(pd.getBaseSalary());
+                    existing.setTotalDeductions(0.0);
+                    existing.setFinalSalary(pd.getNetPay());
+                    existing.setNotes(pd.getNotes());
+
+                    payrollDAO.updatePayroll(existing);
+                    updated++;
+                } else {
+                    // INSERT new payroll
+                    Payroll payroll = new Payroll(
+                            pd.getEmployeeId(), selectedMonth, selectedYear,
+                            pd.getBaseSalary(), 0.0, pd.getNetPay(),
+                            0, 0, today, pd.getNotes()
+                    );
+
+                    payrollDAO.addPayroll(payroll);
+                    processed++;
+                }
             }
 
-            String message = "✅ Payroll Processing Complete!\n\n" +
-                    "Processed: " + processed + " employees\n";
-            if (skipped > 0) {
-                message += "Skipped: " + skipped + " (already processed)\n";
+            String message = "✅ Payroll Processing Complete!\n\n";
+            if (processed > 0) {
+                message += "New records: " + processed + " employees\n";
             }
-            message += "\nPayroll data will remain visible.";
+            if (updated > 0) {
+                message += "Updated: " + updated + " employees\n";
+            }
+            if (skipped > 0) {
+                message += "Skipped: " + skipped + " (errors)\n";
+            }
+            message += "\n✓ Payroll data saved and will persist!";
+
             showInfo(message);
+
+            // Reload from database to confirm save
+            loadExistingPayroll();
 
         } catch (SQLException e) {
             showError("Processing failed: " + e.getMessage());
@@ -449,7 +484,8 @@ public class PayrollController {
             showInfo("✅ Adjustment Applied!\n\n" +
                     "Type: " + adj.type + "\n" +
                     "Amount: ₱" + String.format("%,.2f", adj.amount) + "\n" +
-                    "New Net Pay: ₱" + String.format("%,.2f", newNetPay));
+                    "New Net Pay: ₱" + String.format("%,.2f", newNetPay) + "\n\n" +
+                    "⚠️ Remember to click 'Process All' to save!");
         });
     }
 
@@ -642,7 +678,6 @@ public class PayrollController {
             }
         }
     }
-
     @FXML
     private void handleSearch() {
         String searchTerm = payrollSearchField.getText().trim();

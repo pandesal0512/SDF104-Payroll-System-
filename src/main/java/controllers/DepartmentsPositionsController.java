@@ -5,8 +5,10 @@ import dao.PositionDAO;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
+import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.layout.GridPane;
 import models.Department;
 import models.Position;
 import utils.DialogHelper;
@@ -18,11 +20,11 @@ import java.util.Optional;
 public class DepartmentsPositionsController {
 
     // Departments Table
-    @FXML private TableView<Department> departmentsTable;
-    @FXML private TableColumn<Department, Integer> deptIdColumn;
-    @FXML private TableColumn<Department, String> deptNameColumn;
-    @FXML private TableColumn<Department, String> deptDescColumn;
-    @FXML private TableColumn<Department, String> deptEmpCountColumn;
+    @FXML private TableView<DepartmentDisplay> departmentsTable;
+    @FXML private TableColumn<DepartmentDisplay, Integer> deptIdColumn;
+    @FXML private TableColumn<DepartmentDisplay, String> deptNameColumn;
+    @FXML private TableColumn<DepartmentDisplay, String> deptDescColumn;
+    @FXML private TableColumn<DepartmentDisplay, Integer> deptEmpCountColumn;
 
     // Positions Table
     @FXML private TableView<PositionDisplay> positionsTable;
@@ -37,8 +39,9 @@ public class DepartmentsPositionsController {
     private PositionDAO positionDAO = new PositionDAO();
     private PositionFormDialog positionFormDialog = new PositionFormDialog();
 
-    private ObservableList<Department> departmentList = FXCollections.observableArrayList();
+    private ObservableList<DepartmentDisplay> departmentList = FXCollections.observableArrayList();
     private ObservableList<PositionDisplay> positionList = FXCollections.observableArrayList();
+    private ObservableList<Department> departmentFilterList = FXCollections.observableArrayList();
 
     @FXML
     public void initialize() {
@@ -53,6 +56,7 @@ public class DepartmentsPositionsController {
         deptIdColumn.setCellValueFactory(new PropertyValueFactory<>("id"));
         deptNameColumn.setCellValueFactory(new PropertyValueFactory<>("name"));
         deptDescColumn.setCellValueFactory(new PropertyValueFactory<>("description"));
+        deptEmpCountColumn.setCellValueFactory(new PropertyValueFactory<>("employeeCount"));
 
         departmentsTable.setItems(departmentList);
     }
@@ -61,10 +65,10 @@ public class DepartmentsPositionsController {
         posIdColumn.setCellValueFactory(new PropertyValueFactory<>("id"));
         posTitleColumn.setCellValueFactory(new PropertyValueFactory<>("title"));
         posDeptColumn.setCellValueFactory(new PropertyValueFactory<>("departmentName"));
-        posSalaryColumn.setCellValueFactory(new PropertyValueFactory<>("baseSalary"));
+        posSalaryColumn.setCellValueFactory(new PropertyValueFactory<>("hourlyRate"));
         posDescColumn.setCellValueFactory(new PropertyValueFactory<>("description"));
 
-        // Format salary column
+        // Format hourly rate column
         posSalaryColumn.setCellFactory(column -> new TableCell<PositionDisplay, Double>() {
             @Override
             protected void updateItem(Double item, boolean empty) {
@@ -72,7 +76,7 @@ public class DepartmentsPositionsController {
                 if (empty || item == null) {
                     setText(null);
                 } else {
-                    setText(String.format("₱%,.2f", item));
+                    setText(String.format("₱%.2f/hr", item));
                 }
             }
         });
@@ -81,7 +85,7 @@ public class DepartmentsPositionsController {
     }
 
     private void setupFilterCombo() {
-        filterDepartmentCombo.setItems(departmentList);
+        filterDepartmentCombo.setItems(departmentFilterList);
         filterDepartmentCombo.setCellFactory(param -> new ListCell<Department>() {
             @Override
             protected void updateItem(Department item, boolean empty) {
@@ -101,8 +105,23 @@ public class DepartmentsPositionsController {
     private void loadDepartments() {
         try {
             departmentList.clear();
+            departmentFilterList.clear();
+
             List<Department> departments = departmentDAO.getAllDepartments();
-            departmentList.addAll(departments);
+
+            for (Department dept : departments) {
+                // Get employee count for this department
+                int empCount = departmentDAO.getEmployeeCountByDepartment(dept.getId());
+
+                departmentList.add(new DepartmentDisplay(
+                        dept.getId(),
+                        dept.getName(),
+                        dept.getDescription(),
+                        empCount
+                ));
+
+                departmentFilterList.add(dept);
+            }
         } catch (SQLException e) {
             DialogHelper.showError("Failed to load departments: " + e.getMessage());
         }
@@ -121,7 +140,7 @@ public class DepartmentsPositionsController {
                         pos.getId(),
                         pos.getTitle(),
                         deptName,
-                        pos.getBaseSalary(),
+                        pos.getHourlyRate(),
                         pos.getDescription(),
                         pos.getDepartmentId()
                 ));
@@ -135,65 +154,132 @@ public class DepartmentsPositionsController {
 
     @FXML
     private void handleAddDepartment() {
-        TextInputDialog dialog = new TextInputDialog();
+        Dialog<DepartmentInput> dialog = new Dialog<>();
         dialog.setTitle("Add Department");
         dialog.setHeaderText("Create New Department");
-        dialog.setContentText("Department Name:");
 
-        Optional<String> result = dialog.showAndWait();
-        result.ifPresent(name -> {
-            if (!name.trim().isEmpty()) {
-                try {
-                    // Check if department already exists
-                    if (departmentDAO.departmentExists(name.trim())) {
-                        DialogHelper.showWarning("A department with this name already exists!");
-                        return;
-                    }
+        // Create form
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20, 150, 10, 10));
 
-                    Department dept = new Department(name.trim(), "");
-                    departmentDAO.addDepartment(dept);
-                    DialogHelper.showSuccess("Department '" + name + "' added successfully!");
-                    loadDepartments();
-                    loadPositions(); // Refresh in case positions need updated dept names
-                } catch (SQLException e) {
-                    DialogHelper.showError("Failed to add department: " + e.getMessage());
+        TextField nameField = new TextField();
+        nameField.setPromptText("e.g., Human Resources, IT, Sales");
+
+        TextArea descArea = new TextArea();
+        descArea.setPromptText("Brief description of the department");
+        descArea.setPrefRowCount(3);
+
+        grid.add(new Label("Department Name:"), 0, 0);
+        grid.add(nameField, 1, 0);
+        grid.add(new Label("Description:"), 0, 1);
+        grid.add(descArea, 1, 1);
+
+        dialog.getDialogPane().setContent(grid);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+        // Focus on name field
+        nameField.requestFocus();
+
+        dialog.setResultConverter(button -> {
+            if (button == ButtonType.OK) {
+                String name = nameField.getText().trim();
+                String desc = descArea.getText().trim();
+
+                if (name.isEmpty()) {
+                    DialogHelper.showWarning("Department name cannot be empty!");
+                    return null;
                 }
+
+                return new DepartmentInput(name, desc);
+            }
+            return null;
+        });
+
+        Optional<DepartmentInput> result = dialog.showAndWait();
+        result.ifPresent(input -> {
+            try {
+                // Check if department already exists
+                if (departmentDAO.departmentExists(input.name)) {
+                    DialogHelper.showWarning("A department with this name already exists!");
+                    return;
+                }
+
+                Department dept = new Department(input.name, input.description);
+                departmentDAO.addDepartment(dept);
+                DialogHelper.showSuccess("Department '" + input.name + "' added successfully!");
+                loadDepartments();
+                loadPositions();
+            } catch (SQLException e) {
+                DialogHelper.showError("Failed to add department: " + e.getMessage());
             }
         });
     }
 
     @FXML
     private void handleEditDepartment() {
-        Department selected = departmentsTable.getSelectionModel().getSelectedItem();
+        DepartmentDisplay selected = departmentsTable.getSelectionModel().getSelectedItem();
         if (selected == null) {
             DialogHelper.showWarning("Please select a department to edit");
             return;
         }
 
-        TextInputDialog dialog = new TextInputDialog(selected.getName());
+        Dialog<DepartmentInput> dialog = new Dialog<>();
         dialog.setTitle("Edit Department");
         dialog.setHeaderText("Update Department: " + selected.getName());
-        dialog.setContentText("Department Name:");
 
-        Optional<String> result = dialog.showAndWait();
-        result.ifPresent(name -> {
-            if (!name.trim().isEmpty()) {
-                try {
-                    selected.setName(name.trim());
-                    departmentDAO.updateDepartment(selected);
-                    DialogHelper.showSuccess("Department updated successfully!");
-                    loadDepartments();
-                    loadPositions();
-                } catch (SQLException e) {
-                    DialogHelper.showError("Failed to update department: " + e.getMessage());
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20, 150, 10, 10));
+
+        TextField nameField = new TextField(selected.getName());
+        TextArea descArea = new TextArea(selected.getDescription());
+        descArea.setPrefRowCount(3);
+
+        grid.add(new Label("Department Name:"), 0, 0);
+        grid.add(nameField, 1, 0);
+        grid.add(new Label("Description:"), 0, 1);
+        grid.add(descArea, 1, 1);
+
+        dialog.getDialogPane().setContent(grid);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+        dialog.setResultConverter(button -> {
+            if (button == ButtonType.OK) {
+                String name = nameField.getText().trim();
+                String desc = descArea.getText().trim();
+
+                if (name.isEmpty()) {
+                    DialogHelper.showWarning("Department name cannot be empty!");
+                    return null;
                 }
+
+                return new DepartmentInput(name, desc);
+            }
+            return null;
+        });
+
+        Optional<DepartmentInput> result = dialog.showAndWait();
+        result.ifPresent(input -> {
+            try {
+                Department dept = departmentDAO.getDepartmentById(selected.getId());
+                dept.setName(input.name);
+                dept.setDescription(input.description);
+                departmentDAO.updateDepartment(dept);
+                DialogHelper.showSuccess("Department updated successfully!");
+                loadDepartments();
+                loadPositions();
+            } catch (SQLException e) {
+                DialogHelper.showError("Failed to update department: " + e.getMessage());
             }
         });
     }
 
     @FXML
     private void handleDeleteDepartment() {
-        Department selected = departmentsTable.getSelectionModel().getSelectedItem();
+        DepartmentDisplay selected = departmentsTable.getSelectionModel().getSelectedItem();
         if (selected == null) {
             DialogHelper.showWarning("Please select a department to delete");
             return;
@@ -201,7 +287,7 @@ public class DepartmentsPositionsController {
 
         try {
             // Check if department has employees
-            int empCount = departmentDAO.getEmployeeCountByDepartment(selected.getId());
+            int empCount = selected.getEmployeeCount();
             if (empCount > 0) {
                 DialogHelper.showWarning(
                         "Cannot delete department '" + selected.getName() + "'\n\n" +
@@ -248,7 +334,7 @@ public class DepartmentsPositionsController {
     @FXML
     private void handleAddPosition() {
         // Check if any departments exist
-        if (departmentList.isEmpty()) {
+        if (departmentFilterList.isEmpty()) {
             DialogHelper.showWarning("Please create at least one department first!");
             return;
         }
@@ -259,7 +345,7 @@ public class DepartmentsPositionsController {
         result.ifPresent(position -> {
             if (positionFormDialog.savePosition(position)) {
                 loadPositions();
-                loadDepartments(); // Refresh departments table
+                loadDepartments();
             }
         });
     }
@@ -330,7 +416,7 @@ public class DepartmentsPositionsController {
                             pos.getId(),
                             pos.getTitle(),
                             selected.getName(),
-                            pos.getBaseSalary(),
+                            pos.getHourlyRate(),
                             pos.getDescription(),
                             pos.getDepartmentId()
                     ));
@@ -347,22 +433,41 @@ public class DepartmentsPositionsController {
         loadPositions();
     }
 
-    // ==================== DISPLAY CLASS ====================
+    // ==================== DISPLAY CLASSES ====================
+
+    public static class DepartmentDisplay {
+        private final int id;
+        private final String name;
+        private final String description;
+        private final int employeeCount;
+
+        public DepartmentDisplay(int id, String name, String description, int employeeCount) {
+            this.id = id;
+            this.name = name;
+            this.description = description;
+            this.employeeCount = employeeCount;
+        }
+
+        public int getId() { return id; }
+        public String getName() { return name; }
+        public String getDescription() { return description; }
+        public int getEmployeeCount() { return employeeCount; }
+    }
 
     public static class PositionDisplay {
         private final int id;
         private final String title;
         private final String departmentName;
-        private final double baseSalary;
+        private final double hourlyRate;
         private final String description;
         private final int departmentId;
 
         public PositionDisplay(int id, String title, String departmentName,
-                               double baseSalary, String description, int departmentId) {
+                               double hourlyRate, String description, int departmentId) {
             this.id = id;
             this.title = title;
             this.departmentName = departmentName;
-            this.baseSalary = baseSalary;
+            this.hourlyRate = hourlyRate;
             this.description = description;
             this.departmentId = departmentId;
         }
@@ -370,8 +475,18 @@ public class DepartmentsPositionsController {
         public int getId() { return id; }
         public String getTitle() { return title; }
         public String getDepartmentName() { return departmentName; }
-        public double getBaseSalary() { return baseSalary; }
+        public double getHourlyRate() { return hourlyRate; }
         public String getDescription() { return description; }
         public int getDepartmentId() { return departmentId; }
+    }
+
+    private static class DepartmentInput {
+        final String name;
+        final String description;
+
+        DepartmentInput(String name, String description) {
+            this.name = name;
+            this.description = description;
+        }
     }
 }

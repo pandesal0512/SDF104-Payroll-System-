@@ -1,11 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.geometry.*?>
-<?import javafx.scene.control.*?>
-<?import javafx.scene.layout.*?>
-<?import javafx.scene.text.*?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
 
-<VBox prefHeight="802.0" prefWidth="1715.0" spacing="15.0" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controllers.PayrollController">
+<VBox prefHeight="802.0" prefWidth="1687.0" spacing="15.0" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controllers.PayrollController">
     <padding>
         <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
     </padding>
@@ -61,15 +68,15 @@
             <!-- Payroll Table -->
             <TableView fx:id="payrollTable" style="-fx-fixed-cell-size: 35; -fx-font-size: 15;" VBox.vgrow="ALWAYS">
                 <columns>
-                    <TableColumn fx:id="qrCodeColumn" prefWidth="188.0" text="QR Code" />
-                    <TableColumn fx:id="nameColumn" prefWidth="315.3333435058594" text="Employee Name" />
-                    <TableColumn fx:id="hoursColumn" prefWidth="118.66665649414062" text="Hours" />
-                    <TableColumn fx:id="hourlyRateColumn" prefWidth="144.66668701171875" text="Hourly Rate" />
-                    <TableColumn fx:id="baseSalaryColumn" prefWidth="146.6666259765625" text="Base Salary" />
-                    <TableColumn fx:id="adjustmentColumn" prefWidth="161.66668701171875" text="Adjustment" />
-                    <TableColumn fx:id="netPayColumn" prefWidth="141.3333740234375" text="Net Pay" />
-                    <TableColumn fx:id="notesColumn" prefWidth="276.0" text="Notes" />
-                    <TableColumn fx:id="actionsColumn" prefWidth="190.0" text="Actions" />
+                    <TableColumn fx:id="qrCodeColumn" prefWidth="120.0" text="QR Code" />
+                    <TableColumn fx:id="nameColumn" prefWidth="262.66668701171875" text="Employee Name" />
+                    <TableColumn fx:id="hoursColumn" prefWidth="126.33331298828125" text="Hours Worked" />
+                    <TableColumn fx:id="hourlyRateColumn" prefWidth="160.66668701171875" text="Rate (₱/hr)" />
+                    <TableColumn fx:id="baseSalaryColumn" prefWidth="176.6666259765625" text="Gross Pay" />
+                    <TableColumn fx:id="adjustmentColumn" prefWidth="267.6666259765625" text="Adjustment" />
+                    <TableColumn fx:id="netPayColumn" prefWidth="171.99993896484375" text="Net Pay" />
+                    <TableColumn fx:id="notesColumn" prefWidth="224.66668701171875" text="Notes" />
+                    <TableColumn fx:id="actionsColumn" prefWidth="137.6666259765625" text="Actions" />
                 </columns>
                 <placeholder>
                     <Label text="No payroll data. Click 'Calculate Payroll' to generate." />
@@ -84,7 +91,7 @@
                 <Button onAction="#handleManualAdjustment" style="-fx-background-color: #FF9800; -fx-text-fill: white; -fx-padding: 12 25; -fx-font-size: 14px;" text="💰 Add Adjustment" />
                 <Button onAction="#handleViewPayslip" style="-fx-background-color: #2196F3; -fx-text-fill: white; -fx-padding: 12 25; -fx-font-size: 14px;" text="📊 View Payslip" />
                 <Button onAction="#handleProcessAll" style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 12 25; -fx-font-size: 14px;" text="💾 Process All" />
-                <Button onAction="#handleExportPayroll" style="-fx-background-color: #607D8B; -fx-text-fill: white; -fx-padding: 12 25; -fx-font-size: 14px;" text="📥 Export " />
+                <Button onAction="#handleExportPayroll" style="-fx-background-color: #607D8B; -fx-text-fill: white; -fx-padding: 12 25; -fx-font-size: 14px;" text="📥 Export" />
                 <Button onAction="#handleSendPayslips" style="-fx-background-color: #9C27B0; -fx-text-fill: white; -fx-padding: 12 25; -fx-font-size: 14px;" text="📧 Send Payslips" />
             </HBox>
         </VBox>

@@ -1,4 +1,3 @@
-
 package controllers;
 
 import dao.*;
@@ -297,7 +296,7 @@ public class PayrollController {
             if (processed == 0) {
                 showWarning("No employees found for the selected period!");
             } else {
-                showInfo("Payroll calculated for " + processed + " employees!\n\n" +
+                showInfo("✅ Payroll calculated for " + processed + " employees!\n\n" +
                         "Based on: Hours Worked × Hourly Rate\n\n" +
                         "Click 'Process All' to save to database.");
             }
@@ -341,7 +340,7 @@ public class PayrollController {
                 processed++;
             }
 
-            String message = "Payroll Processing Complete!\n\n" +
+            String message = "✅ Payroll Processing Complete!\n\n" +
                     "Processed: " + processed + " employees\n";
             if (skipped > 0) {
                 message += "Skipped: " + skipped + " (already processed)\n";
@@ -447,7 +446,7 @@ public class PayrollController {
 
             payrollTable.refresh();
 
-            showInfo("Adjustment Applied!\n\n" +
+            showInfo("✅ Adjustment Applied!\n\n" +
                     "Type: " + adj.type + "\n" +
                     "Amount: ₱" + String.format("%,.2f", adj.amount) + "\n" +
                     "New Net Pay: ₱" + String.format("%,.2f", newNetPay));
@@ -508,7 +507,7 @@ public class PayrollController {
         if (file != null) {
             try (PrintWriter writer = new PrintWriter(new FileWriter(file))) {
                 writer.print(payslip);
-                showInfo("Payslip saved!\n\n" + file.getAbsolutePath() + "\n\nYou can now print this file.");
+                showInfo("✅ Payslip saved!\n\n" + file.getAbsolutePath() + "\n\nYou can now print this file.");
             } catch (Exception e) {
                 showError("Failed to save payslip: " + e.getMessage());
             }
@@ -538,11 +537,12 @@ public class PayrollController {
                         "QR Code:          %s\n" +
                         "Position:         %s\n" +
                         "Department:       %s\n\n" +
-                        "WORK SUMMARY\n" +
+                        "COMPENSATION BREAKDOWN\n" +
                         "─────────────────────────────────────────────\n" +
-                        "Hourly Rate:      ₱%.2f/hour\n" +
+                        "Hourly Rate:      ₱%.2f per hour\n" +
                         "Hours Worked:     %.2f hours\n" +
-                        "Base Salary:      ₱%,.2f\n\n" +
+                        "Gross Pay:        ₱%,.2f\n" +
+                        "                  (%.2f hrs × ₱%.2f/hr)\n\n" +
                         "ADJUSTMENTS\n" +
                         "─────────────────────────────────────────────\n" +
                         "%s\n" +
@@ -555,6 +555,7 @@ public class PayrollController {
                 emp.getName(), emp.getQrCode(),
                 pos.getTitle(), dept.getName(),
                 pd.getHourlyRate(), pd.getHoursWorked(), pd.getBaseSalary(),
+                pd.getHoursWorked(), pd.getHourlyRate(),
                 adjustmentDetails.toString(),
                 pd.getNetPay(),
                 LocalDateTime.now().format(DateTimeFormatter.ofPattern("MMM dd, yyyy hh:mm a"))
@@ -630,7 +631,7 @@ public class PayrollController {
                 writer.println("\nGenerated: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("MMM dd, yyyy hh:mm a")));
                 writer.println("Total Employees: " + payrollList.size());
 
-                showInfo("Export Successful!\n\n" +
+                showInfo("✅ Export Successful!\n\n" +
                         "Payroll summary saved to:\n" +
                         file.getAbsolutePath() + "\n\n" +
                         "You can now print this file.");
@@ -732,6 +733,7 @@ public class PayrollController {
         public void setNetPay(double netPay) { this.netPay = netPay; }
         public void setNotes(String notes) { this.notes = notes; }
     }
+
     private static class Adjustment {
         final String type;
         final double amount;

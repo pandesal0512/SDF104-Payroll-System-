@@ -74,6 +74,7 @@ public class DatabaseConnection {
                     "time_in TEXT, " +
                     "time_out TEXT, " +
                     "status TEXT, " + // 'on-time', 'late', 'absent'
+                    "hours_worked REAL DEFAULT 0, " +
                     "FOREIGN KEY(employee_id) REFERENCES employees(id)" +
                     ")";
 

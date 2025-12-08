@@ -10,14 +10,14 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<VBox spacing="15.0" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controllers.DashboardController">
+<VBox prefHeight="802.0" prefWidth="1687.0" spacing="15.0" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controllers.DashboardController">
     <padding>
         <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
     </padding>
 
     <children>
 
-        <Label alignment="CENTER" maxWidth="1.7976931348623157E308" text="📊 DASHBOARD">
+        <Label alignment="CENTER" maxWidth="1.7976931348623157E308" prefWidth="629.0" text="📊 DASHBOARD">
             <font>
                 <Font name="Arial Bold" size="20.0" />
             </font>
@@ -144,12 +144,12 @@
         </Label>
 
 
-        <TableView fx:id="recentActivityTable" prefHeight="250.0">
+        <TableView fx:id="recentActivityTable" maxWidth="1.7976931348623157E308" prefHeight="441.0" prefWidth="935.0" style="-fx-fixed-cell-size: 35; -fx-font-size: 15;">
             <columns>
-                <TableColumn fx:id="timeColumn" prefWidth="100.0" text="Time" />
-                <TableColumn fx:id="employeeColumn" prefWidth="250.0" text="Employee" />
-                <TableColumn fx:id="actionColumn" prefWidth="100.0" text="Action" />
-                <TableColumn fx:id="statusColumn" prefWidth="100.0" text="Status" />
+                <TableColumn fx:id="timeColumn" prefWidth="271.0" text="Time" />
+                <TableColumn fx:id="employeeColumn" prefWidth="848.0" text="Employee" />
+                <TableColumn fx:id="actionColumn" prefWidth="348.0" text="Action" />
+                <TableColumn fx:id="statusColumn" prefWidth="217.0" text="Status" />
             </columns>
             <placeholder>
                 <Label text="No recent activity" />

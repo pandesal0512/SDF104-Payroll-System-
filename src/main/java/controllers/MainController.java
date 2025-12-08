@@ -6,6 +6,7 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.control.Button;
 import javafx.scene.layout.StackPane;
 import javafx.scene.Node;
+import javafx.stage.Stage;
 import models.User;
 
 import java.io.IOException;
@@ -22,17 +23,19 @@ public class MainController {
     @FXML private Button departmentsButton;
 
     private User currentUser;
-    private Button activeButton; // Track currently active button
+    private Button activeButton;
 
     @FXML
     public void initialize() {
-        // Load dashboard by default
         loadDashboard();
     }
 
     public void setCurrentUser(User user) {
         this.currentUser = user;
         System.out.println("Logged in as: " + user.getFullName() + " (" + user.getRole() + ")");
+
+        // Note: Window is already maximized in LoginController
+        // No need to maximize here
     }
 
     @FXML
@@ -70,9 +73,6 @@ public class MainController {
         Platform.exit();
     }
 
-    /**
-     * Load FXML view into content area
-     */
     private void loadView(String fxmlPath) {
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource(fxmlPath));
@@ -84,16 +84,11 @@ public class MainController {
         }
     }
 
-    /**
-     * Highlight the active button
-     */
     private void setActiveButton(Button button) {
-        // Reset previous button
         if (activeButton != null) {
             activeButton.setStyle("-fx-background-color: transparent; -fx-text-fill: #333333;");
         }
 
-        // Highlight new button
         button.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold;");
         activeButton = button;
     }

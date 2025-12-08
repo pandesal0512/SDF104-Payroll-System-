@@ -12,16 +12,22 @@ import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.stage.FileChooser;
+import javafx.stage.Stage;
 import javafx.util.Duration;
 import models.Employee;
 import models.Attendance;
 import models.Department;
 import models.Position;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.PrintWriter;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 public class AttendanceController {
@@ -64,6 +70,7 @@ public class AttendanceController {
         loadTodayAttendance();
         updateDateLabel();
         setupSearchListener();
+        setupListClickHandler();
     }
 
     private void setupTableColumns() {
@@ -92,11 +99,27 @@ public class AttendanceController {
     }
 
     private void setupSearchListener() {
+        // Auto-search as user types
         searchNameField.textProperty().addListener((obs, oldVal, newVal) -> {
             if (!newVal.trim().isEmpty()) {
                 searchEmployeesByName(newVal);
             } else {
                 searchResultsList.getItems().clear();
+            }
+        });
+    }
+
+    /**
+     * Setup single-click handler for search results list
+     */
+    private void setupListClickHandler() {
+        searchResultsList.setOnMouseClicked(event -> {
+            // Single click to select
+            if (event.getClickCount() >= 1) {
+                String selected = searchResultsList.getSelectionModel().getSelectedItem();
+                if (selected != null && !selected.trim().isEmpty()) {
+                    handleSelectFromList();
+                }
             }
         });
     }
@@ -113,6 +136,7 @@ public class AttendanceController {
             Employee employee = employeeDAO.getEmployeeByQRCode(qrCode);
             if (employee != null) {
                 displayEmployee(employee);
+                qrCodeField.clear(); // Clear after successful search
             } else {
                 showWarning("Employee not found with QR code: " + qrCode);
             }
@@ -137,10 +161,15 @@ public class AttendanceController {
             ObservableList<String> results = FXCollections.observableArrayList();
 
             for (Employee emp : employees) {
-                results.add("• " + emp.getName() + " (" + emp.getQrCode() + ")");
+                results.add(emp.getName() + " (" + emp.getQrCode() + ")");
             }
 
             searchResultsList.setItems(results);
+
+            // If only one result, auto-select it
+            if (results.size() == 1) {
+                searchResultsList.getSelectionModel().select(0);
+            }
         } catch (SQLException e) {
             showError("Search failed: " + e.getMessage());
         }
@@ -149,20 +178,28 @@ public class AttendanceController {
     @FXML
     private void handleSelectFromList() {
         String selected = searchResultsList.getSelectionModel().getSelectedItem();
-        if (selected == null) return;
-
-        // Extract QR code from format: "• Name (QR-CODE)"
-        int start = selected.indexOf("(") + 1;
-        int end = selected.indexOf(")");
-        String qrCode = selected.substring(start, end);
+        if (selected == null || selected.trim().isEmpty()) {
+            return;
+        }
 
         try {
-            Employee employee = employeeDAO.getEmployeeByQRCode(qrCode);
-            if (employee != null) {
-                displayEmployee(employee);
+            // Extract QR code from format: "Name (QR_CODE)"
+            int start = selected.lastIndexOf("(") + 1;
+            int end = selected.lastIndexOf(")");
+
+            if (start > 0 && end > start) {
+                String qrCode = selected.substring(start, end).trim();
+
+                Employee employee = employeeDAO.getEmployeeByQRCode(qrCode);
+                if (employee != null) {
+                    displayEmployee(employee);
+                    searchNameField.clear();
+                    searchResultsList.getItems().clear();
+                }
             }
-        } catch (SQLException e) {
+        } catch (Exception e) {
             showError("Failed to load employee: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -178,7 +215,6 @@ public class AttendanceController {
             empPositionLabel.setText(pos != null ? pos.getTitle() : "Unknown");
             empDepartmentLabel.setText(dept != null ? dept.getName() : "Unknown");
 
-            // Check if already timed in today
             Attendance todayRecord = attendanceDAO.getAttendanceByEmployeeAndDate(
                     employee.getId(),
                     LocalDate.now().toString()
@@ -186,22 +222,19 @@ public class AttendanceController {
 
             if (todayRecord != null) {
                 if (todayRecord.getTimeOut() == null || todayRecord.getTimeOut().isEmpty()) {
-                    // Already timed in, can time out
                     attendanceStatusLabel.setText("ALREADY TIMED IN");
                     attendanceStatusLabel.setStyle("-fx-text-fill: #4CAF50; -fx-font-weight: bold;");
                     timeInButton.setDisable(true);
                     timeOutButton.setDisable(false);
                 } else {
-                    // Already completed attendance
                     attendanceStatusLabel.setText("ATTENDANCE COMPLETE");
                     attendanceStatusLabel.setStyle("-fx-text-fill: #2196F3; -fx-font-weight: bold;");
                     timeInButton.setDisable(true);
                     timeOutButton.setDisable(true);
                 }
             } else {
-                // Can time in
                 LocalTime now = LocalTime.now();
-                LocalTime cutoff = LocalTime.of(8, 30); // 8:30 AM
+                LocalTime cutoff = LocalTime.of(8, 30);
 
                 if (now.isBefore(cutoff) || now.equals(cutoff)) {
                     attendanceStatusLabel.setText("ON TIME");
@@ -231,7 +264,6 @@ public class AttendanceController {
             String today = LocalDate.now().toString();
             String timeIn = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
 
-            // Determine status
             LocalTime now = LocalTime.now();
             LocalTime cutoff = LocalTime.of(8, 30);
             String status = now.isBefore(cutoff) || now.equals(cutoff) ? "on-time" : "late";
@@ -246,11 +278,12 @@ public class AttendanceController {
 
             attendanceDAO.addAttendance(attendance);
 
-            showInfo("Time In recorded for " + selectedEmployee.getName() + " at " +
+            showInfo("✅ Time In Recorded!\n\n" +
+                    selectedEmployee.getName() + "\n" +
                     LocalTime.now().format(DateTimeFormatter.ofPattern("hh:mm a")));
 
             loadTodayAttendance();
-            displayEmployee(selectedEmployee); // Refresh display
+            displayEmployee(selectedEmployee);
 
         } catch (SQLException e) {
             showError("Failed to record time in: " + e.getMessage());
@@ -274,10 +307,16 @@ public class AttendanceController {
             if (attendance != null && (attendance.getTimeOut() == null || attendance.getTimeOut().isEmpty())) {
                 String timeOut = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
                 attendance.setTimeOut(timeOut);
+
+                // Calculate hours worked
+                double hoursWorked = calculateHours(attendance.getTimeIn(), timeOut);
+
                 attendanceDAO.updateAttendance(attendance);
 
-                showInfo("Time Out recorded for " + selectedEmployee.getName() + " at " +
-                        LocalTime.now().format(DateTimeFormatter.ofPattern("hh:mm a")));
+                showInfo("✅ Time Out Recorded!\n\n" +
+                        selectedEmployee.getName() + "\n" +
+                        LocalTime.now().format(DateTimeFormatter.ofPattern("hh:mm a")) + "\n" +
+                        String.format("Hours worked: %.2f", hoursWorked));
 
                 loadTodayAttendance();
                 displayEmployee(selectedEmployee);
@@ -285,6 +324,17 @@ public class AttendanceController {
 
         } catch (SQLException e) {
             showError("Failed to record time out: " + e.getMessage());
+        }
+    }
+
+    private double calculateHours(String timeIn, String timeOut) {
+        try {
+            LocalTime in = LocalTime.parse(timeIn);
+            LocalTime out = LocalTime.parse(timeOut);
+            long minutes = ChronoUnit.MINUTES.between(in, out);
+            return minutes / 60.0;
+        } catch (Exception e) {
+            return 0.0;
         }
     }
 
@@ -316,19 +366,21 @@ public class AttendanceController {
                 Employee emp = employeeDAO.getEmployeeById(att.getEmployeeId());
                 if (emp != null) {
                     String time = att.getTimeIn();
+                    String action = "In";
+
                     if (att.getTimeOut() != null && !att.getTimeOut().isEmpty()) {
                         time = att.getTimeOut();
+                        action = "Out";
                     }
 
-                    String action = (att.getTimeOut() != null && !att.getTimeOut().isEmpty()) ? "Out" : "In";
-                    String status = att.getStatus();
+                    String status = formatStatus(att.getStatus());
 
                     attendanceList.add(new AttendanceDisplay(
-                            time.substring(0, 5), // HH:mm
+                            time.substring(0, 5),
                             emp.getQrCode(),
                             emp.getName(),
                             action,
-                            formatStatus(status)
+                            status
                     ));
                 }
             }
@@ -348,18 +400,148 @@ public class AttendanceController {
 
     @FXML
     private void handleViewReport() {
-        showInfo("Detailed report feature coming soon!");
+        try {
+            String today = LocalDate.now().toString();
+            List<Attendance> records = attendanceDAO.getAttendanceByDate(today);
+
+            int totalPresent = 0;
+            int totalLate = 0;
+            int totalOnTime = 0;
+            double totalHours = 0;
+
+            for (Attendance att : records) {
+                totalPresent++;
+                if ("late".equals(att.getStatus())) {
+                    totalLate++;
+                } else if ("on-time".equals(att.getStatus())) {
+                    totalOnTime++;
+                }
+
+                if (att.getTimeOut() != null && !att.getTimeOut().isEmpty()) {
+                    totalHours += calculateHours(att.getTimeIn(), att.getTimeOut());
+                }
+            }
+
+            int totalEmployees = employeeDAO.getActiveEmployees().size();
+            int absent = totalEmployees - totalPresent;
+
+            String report = String.format(
+                    "═══════════════════════════════════════════\n" +
+                            "     ATTENDANCE REPORT - %s\n" +
+                            "═══════════════════════════════════════════\n\n" +
+                            "SUMMARY\n" +
+                            "───────────────────────────────────────────\n" +
+                            "Total Employees:      %d\n" +
+                            "Present:              %d\n" +
+                            "  - On Time:          %d\n" +
+                            "  - Late:             %d\n" +
+                            "Absent:               %d\n" +
+                            "Total Hours Worked:   %.2f hours\n\n" +
+                            "ATTENDANCE RATE\n" +
+                            "───────────────────────────────────────────\n" +
+                            "Present Rate:         %.1f%%\n" +
+                            "On-Time Rate:         %.1f%%\n" +
+                            "Late Rate:            %.1f%%\n\n" +
+                            "═══════════════════════════════════════════\n",
+                    LocalDate.now().format(DateTimeFormatter.ofPattern("MMMM dd, yyyy")),
+                    totalEmployees,
+                    totalPresent,
+                    totalOnTime,
+                    totalLate,
+                    absent,
+                    totalHours,
+                    (totalPresent * 100.0 / totalEmployees),
+                    (totalOnTime * 100.0 / totalEmployees),
+                    (totalLate * 100.0 / totalEmployees)
+            );
+
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Attendance Report");
+            alert.setHeaderText(null);
+
+            TextArea textArea = new TextArea(report);
+            textArea.setEditable(false);
+            textArea.setWrapText(true);
+            textArea.setPrefRowCount(20);
+            textArea.setStyle("-fx-font-family: 'Courier New'; -fx-font-size: 12px;");
+
+            alert.getDialogPane().setContent(textArea);
+            alert.getDialogPane().setPrefWidth(550);
+            alert.showAndWait();
+
+        } catch (SQLException e) {
+            showError("Failed to generate report: " + e.getMessage());
+        }
     }
 
+    /**
+     * Export to TEXT format (not Excel) - similar to payslip receipts
+     */
     @FXML
     private void handleExport() {
-        showInfo("Export feature coming soon!");
+        if (attendanceList.isEmpty()) {
+            showWarning("No attendance records to export!");
+            return;
+        }
+
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Export Today's Attendance");
+        fileChooser.setInitialFileName("attendance_" + LocalDate.now().toString() + ".txt");
+        fileChooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("Text Files", "*.txt")
+        );
+
+        Stage stage = (Stage) attendanceLogTable.getScene().getWindow();
+        File file = fileChooser.showSaveDialog(stage);
+
+        if (file != null) {
+            try (PrintWriter writer = new PrintWriter(new FileWriter(file))) {
+                // Header
+                writer.println("═══════════════════════════════════════════════════════════");
+                writer.println("                 DAILY ATTENDANCE LOG");
+                writer.println("                " + LocalDate.now().format(
+                        DateTimeFormatter.ofPattern("MMMM dd, yyyy")));
+                writer.println("═══════════════════════════════════════════════════════════\n");
+
+                // Table header
+                writer.println(String.format("%-8s %-15s %-25s %-8s %-12s",
+                        "Time", "QR Code", "Employee Name", "Action", "Status"));
+                writer.println("───────────────────────────────────────────────────────────");
+
+                // Records
+                for (AttendanceDisplay att : attendanceList) {
+                    writer.println(String.format("%-8s %-15s %-25s %-8s %-12s",
+                            att.getTime(),
+                            att.getQrCode(),
+                            att.getEmployeeName().length() > 25 ?
+                                    att.getEmployeeName().substring(0, 22) + "..." :
+                                    att.getEmployeeName(),
+                            att.getAction(),
+                            att.getStatus()
+                    ));
+                }
+
+                writer.println("───────────────────────────────────────────────────────────");
+                writer.println("\nTotal Records: " + attendanceList.size());
+                writer.println("Exported: " + LocalTime.now().format(
+                        DateTimeFormatter.ofPattern("hh:mm a")));
+                writer.println("\n═══════════════════════════════════════════════════════════");
+
+                showInfo("✅ Export Successful!\n\n" +
+                        attendanceList.size() + " records exported to:\n" +
+                        file.getAbsolutePath() + "\n\n" +
+                        "You can now print this file.");
+
+            } catch (Exception e) {
+                showError("Export failed: " + e.getMessage());
+            }
+        }
     }
 
-    // Alert methods
     private void showError(String message) {
         Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.setTitle("Error");
+        alert.setHeaderText(null);
         alert.setContentText(message);
         alert.showAndWait();
     }
@@ -367,6 +549,7 @@ public class AttendanceController {
     private void showWarning(String message) {
         Alert alert = new Alert(Alert.AlertType.WARNING);
         alert.setTitle("Warning");
+        alert.setHeaderText(null);
         alert.setContentText(message);
         alert.showAndWait();
     }
@@ -374,13 +557,11 @@ public class AttendanceController {
     private void showInfo(String message) {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle("Success");
+        alert.setHeaderText(null);
         alert.setContentText(message);
         alert.showAndWait();
     }
 
-    /**
-     * Display class for TableView
-     */
     public static class AttendanceDisplay {
         private final String time;
         private final String qrCode;

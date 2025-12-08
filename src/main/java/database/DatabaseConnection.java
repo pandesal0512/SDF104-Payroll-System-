@@ -152,4 +152,5 @@ public class DatabaseConnection {
             System.out.println("Database connection failed: " + e.getMessage());
         }
     }
+
 }

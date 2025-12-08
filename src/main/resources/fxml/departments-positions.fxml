@@ -1,13 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.geometry.Insets?>
-<?import javafx.scene.control.*?>
-<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Tab?>
+<?import javafx.scene.control.TabPane?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<VBox spacing="20.0" xmlns="http://javafx.com/javafx/24.0.1"
-      xmlns:fx="http://javafx.com/fxml/1"
-      fx:controller="controllers.DepartmentsPositionsController">
+<VBox prefHeight="802.0" prefWidth="1748.0" spacing="20.0" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controllers.DepartmentsPositionsController">
     <padding>
         <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
     </padding>
@@ -21,35 +26,29 @@
         </Label>
 
         <!-- Tab Pane for Departments and Positions -->
-        <TabPane VBox.vgrow="ALWAYS">
+        <TabPane prefHeight="719.0" prefWidth="1738.0" VBox.vgrow="ALWAYS">
 
             <!-- DEPARTMENTS TAB -->
-            <Tab text="📁 Departments" closable="false">
+            <Tab closable="false" text="📁 Departments">
                 <VBox spacing="15.0">
                     <padding>
-                        <Insets top="15.0" bottom="15.0" left="15.0" right="15.0" />
+                        <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
                     </padding>
 
                     <!-- Department Actions -->
                     <HBox spacing="10.0">
-                        <Button onAction="#handleAddDepartment"
-                                style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20;"
-                                text="➕ Add Department" />
-                        <Button onAction="#handleEditDepartment"
-                                style="-fx-background-color: #2196F3; -fx-text-fill: white; -fx-padding: 8 20;"
-                                text="✏️ Edit Department" />
-                        <Button onAction="#handleDeleteDepartment"
-                                style="-fx-background-color: #f44336; -fx-text-fill: white; -fx-padding: 8 20;"
-                                text="🗑️ Delete Department" />
+                        <Button onAction="#handleAddDepartment" style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20;" text="➕ Add Department" />
+                        <Button onAction="#handleEditDepartment" style="-fx-background-color: #2196F3; -fx-text-fill: white; -fx-padding: 8 20;" text="✏️ Edit Department" />
+                        <Button onAction="#handleDeleteDepartment" style="-fx-background-color: #f44336; -fx-text-fill: white; -fx-padding: 8 20;" text="🗑️ Delete Department" />
                     </HBox>
 
                     <!-- Departments Table -->
-                    <TableView fx:id="departmentsTable" VBox.vgrow="ALWAYS">
+                    <TableView fx:id="departmentsTable" style="-fx-fixed-cell-size: 35; -fx-font-size: 15;" VBox.vgrow="ALWAYS">
                         <columns>
                             <TableColumn fx:id="deptIdColumn" prefWidth="80.0" text="ID" />
-                            <TableColumn fx:id="deptNameColumn" prefWidth="200.0" text="Department Name" />
-                            <TableColumn fx:id="deptDescColumn" prefWidth="300.0" text="Description" />
-                            <TableColumn fx:id="deptEmpCountColumn" prefWidth="150.0" text="Employees" />
+                            <TableColumn fx:id="deptNameColumn" prefWidth="834.0" text="Department Name" />
+                            <TableColumn fx:id="deptDescColumn" prefWidth="376.0" text="Description" />
+                            <TableColumn fx:id="deptEmpCountColumn" prefWidth="387.0" text="Employees" />
                         </columns>
                         <placeholder>
                             <Label text="No departments found. Click 'Add Department' to create one." />
@@ -59,43 +58,34 @@
             </Tab>
 
             <!-- POSITIONS TAB -->
-            <Tab text="📌 Positions" closable="false">
-                <VBox spacing="15.0">
+            <Tab closable="false" text="📌 Positions">
+                <VBox prefHeight="690.0" prefWidth="1726.0" spacing="15.0">
                     <padding>
-                        <Insets top="15.0" bottom="15.0" left="15.0" right="15.0" />
+                        <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
                     </padding>
 
                     <!-- Position Actions -->
                     <HBox spacing="10.0">
-                        <Button onAction="#handleAddPosition"
-                                style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20;"
-                                text="➕ Add Position" />
-                        <Button onAction="#handleEditPosition"
-                                style="-fx-background-color: #2196F3; -fx-text-fill: white; -fx-padding: 8 20;"
-                                text="✏️ Edit Position" />
-                        <Button onAction="#handleDeletePosition"
-                                style="-fx-background-color: #f44336; -fx-text-fill: white; -fx-padding: 8 20;"
-                                text="🗑️ Delete Position" />
+                        <Button onAction="#handleAddPosition" style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20;" text="➕ Add Position" />
+                        <Button onAction="#handleEditPosition" style="-fx-background-color: #2196F3; -fx-text-fill: white; -fx-padding: 8 20;" text="✏️ Edit Position" />
+                        <Button onAction="#handleDeletePosition" style="-fx-background-color: #f44336; -fx-text-fill: white; -fx-padding: 8 20;" text="🗑️ Delete Position" />
                     </HBox>
 
                     <!-- Filter by Department -->
-                    <HBox spacing="10.0" alignment="CENTER_LEFT">
+                    <HBox alignment="CENTER_LEFT" spacing="10.0">
                         <Label text="Filter by Department:" />
-                        <ComboBox fx:id="filterDepartmentCombo"
-                                  onAction="#handleFilterByDepartment"
-                                  promptText="All Departments"
-                                  prefWidth="200.0" />
+                        <ComboBox fx:id="filterDepartmentCombo" onAction="#handleFilterByDepartment" prefWidth="200.0" promptText="All Departments" />
                         <Button onAction="#handleClearFilter" text="Clear Filter" />
                     </HBox>
 
                     <!-- Positions Table -->
-                    <TableView fx:id="positionsTable" VBox.vgrow="ALWAYS">
+                    <TableView fx:id="positionsTable" style="-fx-fixed-cell-size: 35; -fx-font-size: 15;" VBox.vgrow="ALWAYS">
                         <columns>
                             <TableColumn fx:id="posIdColumn" prefWidth="80.0" text="ID" />
-                            <TableColumn fx:id="posTitleColumn" prefWidth="200.0" text="Position Title" />
-                            <TableColumn fx:id="posDeptColumn" prefWidth="180.0" text="Department" />
-                            <TableColumn fx:id="posSalaryColumn" prefWidth="150.0" text="Base Salary" />
-                            <TableColumn fx:id="posDescColumn" prefWidth="220.0" text="Description" />
+                            <TableColumn fx:id="posTitleColumn" prefWidth="612.0" text="Position Title" />
+                            <TableColumn fx:id="posDeptColumn" prefWidth="428.0" text="Department" />
+                            <TableColumn fx:id="posSalaryColumn" prefWidth="326.0" text="Base Salary" />
+                            <TableColumn fx:id="posDescColumn" prefWidth="231.0" text="Description" />
                         </columns>
                         <placeholder>
                             <Label text="No positions found. Click 'Add Position' to create one." />

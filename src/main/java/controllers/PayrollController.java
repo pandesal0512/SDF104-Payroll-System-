@@ -1,17 +1,27 @@
+
 package controllers;
 
 import dao.*;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
+import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.VBox;
+import javafx.stage.FileChooser;
+import javafx.stage.Stage;
 import models.*;
 import utils.*;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.PrintWriter;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 
@@ -20,23 +30,15 @@ public class PayrollController {
     @FXML private ComboBox<String> monthCombo;
     @FXML private ComboBox<Integer> yearCombo;
     @FXML private ComboBox<Department> departmentFilterCombo;
-    @FXML private TextField lateDeductionField;
-    @FXML private TextField absentDeductionField;
     @FXML private TextField payrollSearchField;
-
-    @FXML private Label summaryTitleLabel;
-    @FXML private Label totalEmployeesLabel;
-    @FXML private Label totalPayrollLabel;
-    @FXML private Label totalDeductionsLabel;
-    @FXML private Label netPayLabel;
 
     @FXML private TableView<PayrollDisplay> payrollTable;
     @FXML private TableColumn<PayrollDisplay, String> qrCodeColumn;
     @FXML private TableColumn<PayrollDisplay, String> nameColumn;
+    @FXML private TableColumn<PayrollDisplay, Double> hoursColumn;
+    @FXML private TableColumn<PayrollDisplay, Double> hourlyRateColumn;
     @FXML private TableColumn<PayrollDisplay, Double> baseSalaryColumn;
-    @FXML private TableColumn<PayrollDisplay, Integer> lateCountColumn;
-    @FXML private TableColumn<PayrollDisplay, Integer> absentCountColumn;
-    @FXML private TableColumn<PayrollDisplay, Double> deductionsColumn;
+    @FXML private TableColumn<PayrollDisplay, Double> adjustmentColumn;
     @FXML private TableColumn<PayrollDisplay, Double> netPayColumn;
     @FXML private TableColumn<PayrollDisplay, String> notesColumn;
     @FXML private TableColumn<PayrollDisplay, Void> actionsColumn;
@@ -57,7 +59,11 @@ public class PayrollController {
         setupYearCombo();
         setupDepartmentFilter();
         setupTableColumns();
-        setupDeductionFields();
+
+        // Auto-load current month's payroll
+        selectedMonth = DateTimeHelper.getCurrentMonth();
+        selectedYear = DateTimeHelper.getCurrentYear();
+        loadExistingPayroll();
     }
 
     private void setupMonthCombo() {
@@ -81,27 +87,146 @@ public class PayrollController {
         try {
             List<Department> departments = departmentDAO.getAllDepartments();
             departmentFilterCombo.setItems(FXCollections.observableArrayList(departments));
+
+            departmentFilterCombo.setCellFactory(param -> new ListCell<Department>() {
+                @Override
+                protected void updateItem(Department item, boolean empty) {
+                    super.updateItem(item, empty);
+                    setText(empty || item == null ? "" : item.getName());
+                }
+            });
+
+            departmentFilterCombo.setButtonCell(new ListCell<Department>() {
+                @Override
+                protected void updateItem(Department item, boolean empty) {
+                    super.updateItem(item, empty);
+                    setText(empty || item == null ? "" : item.getName());
+                }
+            });
         } catch (SQLException e) {
-            DialogHelper.showError("Failed to load departments: " + e.getMessage());
+            showError("Failed to load departments: " + e.getMessage());
         }
     }
 
     private void setupTableColumns() {
         qrCodeColumn.setCellValueFactory(new PropertyValueFactory<>("qrCode"));
         nameColumn.setCellValueFactory(new PropertyValueFactory<>("employeeName"));
+        hoursColumn.setCellValueFactory(new PropertyValueFactory<>("hoursWorked"));
+        hourlyRateColumn.setCellValueFactory(new PropertyValueFactory<>("hourlyRate"));
         baseSalaryColumn.setCellValueFactory(new PropertyValueFactory<>("baseSalary"));
-        lateCountColumn.setCellValueFactory(new PropertyValueFactory<>("lateCount"));
-        absentCountColumn.setCellValueFactory(new PropertyValueFactory<>("absentCount"));
-        deductionsColumn.setCellValueFactory(new PropertyValueFactory<>("totalDeductions"));
+        adjustmentColumn.setCellValueFactory(new PropertyValueFactory<>("adjustment"));
         netPayColumn.setCellValueFactory(new PropertyValueFactory<>("netPay"));
         notesColumn.setCellValueFactory(new PropertyValueFactory<>("notes"));
+
+        // Format columns
+        hoursColumn.setCellFactory(col -> new TableCell<PayrollDisplay, Double>() {
+            @Override
+            protected void updateItem(Double item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? "" : String.format("%.2f hrs", item));
+            }
+        });
+
+        hourlyRateColumn.setCellFactory(col -> new TableCell<PayrollDisplay, Double>() {
+            @Override
+            protected void updateItem(Double item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? "" : String.format("₱%.2f/hr", item));
+            }
+        });
+
+        baseSalaryColumn.setCellFactory(col -> new TableCell<PayrollDisplay, Double>() {
+            @Override
+            protected void updateItem(Double item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? "" : String.format("₱%,.2f", item));
+            }
+        });
+
+        adjustmentColumn.setCellFactory(col -> new TableCell<PayrollDisplay, Double>() {
+            @Override
+            protected void updateItem(Double item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null || item == 0) {
+                    setText("");
+                } else if (item > 0) {
+                    setText(String.format("+₱%,.2f", item));
+                    setStyle("-fx-text-fill: #4CAF50; -fx-font-weight: bold;");
+                } else {
+                    setText(String.format("-₱%,.2f", Math.abs(item)));
+                    setStyle("-fx-text-fill: #d32f2f; -fx-font-weight: bold;");
+                }
+            }
+        });
+
+        netPayColumn.setCellFactory(col -> new TableCell<PayrollDisplay, Double>() {
+            @Override
+            protected void updateItem(Double item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? "" : String.format("₱%,.2f", item));
+                if (!empty && item != null) {
+                    setStyle("-fx-font-weight: bold; -fx-text-fill: #2196F3; -fx-font-size: 14px;");
+                }
+            }
+        });
+
+        actionsColumn.setCellFactory(col -> new TableCell<PayrollDisplay, Void>() {
+            private final Button viewButton = new Button("📊 View");
+
+            {
+                viewButton.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white; -fx-font-size: 11px;");
+                viewButton.setOnAction(event -> {
+                    PayrollDisplay data = getTableView().getItems().get(getIndex());
+                    payrollTable.getSelectionModel().select(data);
+                    handleViewPayslip();
+                });
+            }
+
+            @Override
+            protected void updateItem(Void item, boolean empty) {
+                super.updateItem(item, empty);
+                setGraphic(empty ? null : viewButton);
+            }
+        });
 
         payrollTable.setItems(payrollList);
     }
 
-    private void setupDeductionFields() {
-        lateDeductionField.setText("50.00");
-        absentDeductionField.setText("200.00");
+    /**
+     * Load existing payroll from database (keeps data persistent)
+     */
+    private void loadExistingPayroll() {
+        try {
+            payrollList.clear();
+            List<Payroll> existingPayroll = payrollDAO.getPayrollByPeriod(selectedMonth, selectedYear);
+
+            for (Payroll payroll : existingPayroll) {
+                Employee emp = employeeDAO.getEmployeeById(payroll.getEmployeeId());
+                if (emp == null) continue;
+
+                Position pos = positionDAO.getPositionById(emp.getPositionId());
+                if (pos == null) continue;
+
+                // Calculate hours for display
+                String startDate = selectedYear + "-" + String.format("%02d", selectedMonth) + "-01";
+                String endDate = selectedYear + "-" + String.format("%02d", selectedMonth) + "-" +
+                        LocalDate.of(selectedYear, selectedMonth, 1).lengthOfMonth();
+                double totalHours = attendanceDAO.getTotalHoursWorked(emp.getId(), startDate, endDate);
+
+                // Adjustment = final_salary - base_salary
+                double adjustment = payroll.getFinalSalary() - payroll.getBaseSalary();
+
+                payrollList.add(new PayrollDisplay(
+                        emp.getId(), emp.getQrCode(), emp.getName(),
+                        totalHours, pos.getHourlyRate(), payroll.getBaseSalary(),
+                        adjustment, payroll.getFinalSalary(), payroll.getNotes()
+                ));
+            }
+
+        } catch (SQLException e) {
+            // No existing payroll, that's fine
+            System.out.println("No existing payroll for " + selectedMonth + "/" + selectedYear);
+        }
     }
 
     @FXML
@@ -109,94 +234,124 @@ public class PayrollController {
         selectedMonth = DateTimeHelper.getMonthNumber(monthCombo.getValue());
         selectedYear = yearCombo.getValue();
 
-        try {
-            double lateDeduction = Double.parseDouble(lateDeductionField.getText());
-            double absentDeduction = Double.parseDouble(absentDeductionField.getText());
+        // First, try to load existing payroll
+        loadExistingPayroll();
 
+        if (!payrollList.isEmpty()) {
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Existing Payroll Found");
+            alert.setHeaderText(payrollList.size() + " employee(s) already processed for " +
+                    monthCombo.getValue() + " " + selectedYear);
+            alert.setContentText("Payroll has been loaded from database.\n\n" +
+                    "To update with latest attendance:\n" +
+                    "• Delete existing payroll records from database, OR\n" +
+                    "• Use 'Add Adjustment' for individual changes");
+
+            ButtonType recalculateButton = new ButtonType("🔄 Recalculate Anyway", ButtonBar.ButtonData.OK_DONE);
+            ButtonType cancelButton = new ButtonType("Keep Existing", ButtonBar.ButtonData.CANCEL_CLOSE);
+            alert.getButtonTypes().setAll(recalculateButton, cancelButton);
+
+            Optional<ButtonType> result = alert.showAndWait();
+            if (result.isEmpty() || result.get() == cancelButton) {
+                return;
+            }
+            // User chose to recalculate - continue below
+        }
+
+        // Calculate new payroll (or recalculate)
+        try {
             payrollList.clear();
             List<Employee> employees = departmentFilterCombo.getValue() != null ?
                     employeeDAO.getEmployeesByDepartment(departmentFilterCombo.getValue().getId()) :
-                    employeeDAO.getAllEmployees();
+                    employeeDAO.getActiveEmployees();
 
-            double totalBase = 0;
-            double totalDeduct = 0;
-            int empCount = 0;
-
+            int processed = 0;
             for (Employee emp : employees) {
                 if (!"active".equals(emp.getStatus())) continue;
+
+                LocalDate hireDate = LocalDate.parse(emp.getHireDate());
+                LocalDate payrollDate = LocalDate.of(selectedYear, selectedMonth, 1);
+
+                if (hireDate.isAfter(payrollDate)) continue;
 
                 Position pos = positionDAO.getPositionById(emp.getPositionId());
                 if (pos == null) continue;
 
-                int lateCount = attendanceDAO.countLateByEmployeeAndMonth(emp.getId(), selectedYear, selectedMonth);
-                int absentCount = attendanceDAO.countAbsentByEmployeeAndMonth(emp.getId(), selectedYear, selectedMonth);
+                String startDate = selectedYear + "-" + String.format("%02d", selectedMonth) + "-01";
+                String endDate = selectedYear + "-" + String.format("%02d", selectedMonth) + "-" +
+                        LocalDate.of(selectedYear, selectedMonth, 1).lengthOfMonth();
 
-                double baseSalary = pos.getBaseSalary();
-                double deductions = PayrollCalculator.calculateAttendanceDeductions(
-                        lateCount, absentCount, lateDeduction, absentDeduction);
-                double netPay = PayrollCalculator.calculateNetPay(baseSalary, deductions);
+                double totalHours = attendanceDAO.getTotalHoursWorked(emp.getId(), startDate, endDate);
+                double hourlyRate = pos.getHourlyRate();
+                double baseSalary = totalHours * hourlyRate;
+                double adjustment = 0.0;
+                double netPay = baseSalary + adjustment;
 
                 payrollList.add(new PayrollDisplay(
                         emp.getId(), emp.getQrCode(), emp.getName(),
-                        baseSalary, lateCount, absentCount,
-                        deductions, netPay, ""
+                        totalHours, hourlyRate, baseSalary, adjustment, netPay, ""
                 ));
-
-                totalBase += baseSalary;
-                totalDeduct += deductions;
-                empCount++;
+                processed++;
             }
 
-            totalEmployeesLabel.setText(String.valueOf(empCount));
-            totalPayrollLabel.setText(PayrollCalculator.formatToPeso(totalBase));
-            totalDeductionsLabel.setText(PayrollCalculator.formatToPeso(totalDeduct));
-            netPayLabel.setText(PayrollCalculator.formatToPeso(totalBase - totalDeduct));
+            if (processed == 0) {
+                showWarning("No employees found for the selected period!");
+            } else {
+                showInfo("Payroll calculated for " + processed + " employees!\n\n" +
+                        "Based on: Hours Worked × Hourly Rate\n\n" +
+                        "Click 'Process All' to save to database.");
+            }
 
-            summaryTitleLabel.setText("Payroll Summary for " + monthCombo.getValue() + " " + selectedYear);
-
-            DialogHelper.showSuccess("Payroll calculated for " + empCount + " employees!");
-
-        } catch (SQLException | NumberFormatException e) {
-            DialogHelper.showError("Calculation failed: " + e.getMessage());
+        } catch (SQLException e) {
+            showError("Calculation failed: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
     @FXML
     private void handleProcessAll() {
         if (payrollList.isEmpty()) {
-            DialogHelper.showWarning("Please calculate payroll first!");
+            showWarning("Please calculate payroll first!");
             return;
         }
 
-        if (!DialogHelper.showConfirmation("Process payroll for all employees?\nThis will save to database.")) {
+        if (!DialogHelper.showConfirmation("Process payroll for " + payrollList.size() + " employees?\n\n" +
+                "This will save all records to the database.")) {
             return;
         }
 
         try {
-            double lateDeduction = Double.parseDouble(lateDeductionField.getText());
-            double absentDeduction = Double.parseDouble(absentDeductionField.getText());
             String today = DateTimeHelper.getCurrentDate();
-
             int processed = 0;
+            int skipped = 0;
+
             for (PayrollDisplay pd : payrollList) {
                 if (payrollDAO.isPayrollProcessed(pd.getEmployeeId(), selectedMonth, selectedYear)) {
+                    skipped++;
                     continue;
                 }
 
                 Payroll payroll = new Payroll(
                         pd.getEmployeeId(), selectedMonth, selectedYear,
-                        pd.getBaseSalary(), pd.getTotalDeductions(), pd.getNetPay(),
-                        pd.getLateCount(), pd.getAbsentCount(), today, pd.getNotes()
+                        pd.getBaseSalary(), 0.0, pd.getNetPay(),
+                        0, 0, today, pd.getNotes()
                 );
 
                 payrollDAO.addPayroll(payroll);
                 processed++;
             }
 
-            DialogHelper.showSuccess("Processed payroll for " + processed + " employees!");
+            String message = "Payroll Processing Complete!\n\n" +
+                    "Processed: " + processed + " employees\n";
+            if (skipped > 0) {
+                message += "Skipped: " + skipped + " (already processed)\n";
+            }
+            message += "\nPayroll data will remain visible.";
+            showInfo(message);
 
-        } catch (SQLException | NumberFormatException e) {
-            DialogHelper.showError("Processing failed: " + e.getMessage());
+        } catch (SQLException e) {
+            showError("Processing failed: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -204,27 +359,49 @@ public class PayrollController {
     private void handleManualAdjustment() {
         PayrollDisplay selected = payrollTable.getSelectionModel().getSelectedItem();
         if (selected == null) {
-            DialogHelper.showWarning("Please select an employee!");
+            showWarning("Please select an employee first!");
             return;
         }
 
-        Dialog<PayrollAdjustment> dialog = new Dialog<>();
-        dialog.setTitle("Manual Payroll Adjustment");
-        dialog.setHeaderText("Adjust payroll for: " + selected.getEmployeeName());
+        Dialog<Adjustment> dialog = new Dialog<>();
+        dialog.setTitle("Add Adjustment");
+        dialog.setHeaderText("Adjust salary for: " + selected.getEmployeeName());
 
         GridPane grid = new GridPane();
         grid.setHgap(10);
-        grid.setVgap(10);
+        grid.setVgap(15);
+        grid.setPadding(new Insets(20));
 
-        TextField deductionField = new TextField(String.valueOf(selected.getTotalDeductions()));
+        // Adjustment type
+        ToggleGroup typeGroup = new ToggleGroup();
+        RadioButton bonusRadio = new RadioButton("💰 Bonus");
+        RadioButton leaveRadio = new RadioButton("🏖️ Leave with Pay");
+        RadioButton overtimeRadio = new RadioButton("⏰ Overtime Hours");
+        RadioButton deductionRadio = new RadioButton("📉 Deduction");
+
+        bonusRadio.setToggleGroup(typeGroup);
+        leaveRadio.setToggleGroup(typeGroup);
+        overtimeRadio.setToggleGroup(typeGroup);
+        deductionRadio.setToggleGroup(typeGroup);
+        bonusRadio.setSelected(true);
+
+        VBox typeBox = new VBox(10, bonusRadio, leaveRadio, overtimeRadio, deductionRadio);
+
+        // Amount/Hours input
+        TextField amountField = new TextField();
+        amountField.setPromptText("Enter amount or hours");
+
+        // Notes
         TextArea notesArea = new TextArea(selected.getNotes());
-        notesArea.setPromptText("Reason for adjustment (e.g., Sick leave - 3 days)");
+        notesArea.setPromptText("E.g., 13th month pay, Holiday bonus, Medical leave, etc.");
         notesArea.setPrefRowCount(3);
 
-        grid.add(new Label("Total Deductions:"), 0, 0);
-        grid.add(deductionField, 1, 0);
-        grid.add(new Label("Notes:"), 0, 1);
-        grid.add(notesArea, 1, 1);
+        grid.add(new Label("Adjustment Type:"), 0, 0);
+        grid.add(typeBox, 1, 0);
+        grid.add(new Label("Amount/Hours:"), 0, 1);
+        grid.add(amountField, 1, 1);
+        grid.add(new Label("Notes:"), 0, 2);
+        grid.add(notesArea, 1, 2);
 
         dialog.getDialogPane().setContent(grid);
         dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
@@ -232,112 +409,337 @@ public class PayrollController {
         dialog.setResultConverter(button -> {
             if (button == ButtonType.OK) {
                 try {
-                    double newDeduction = Double.parseDouble(deductionField.getText());
-                    return new PayrollAdjustment(newDeduction, notesArea.getText());
+                    double value = Double.parseDouble(amountField.getText());
+                    String type;
+                    double adjustmentAmount;
+
+                    if (bonusRadio.isSelected()) {
+                        type = "Bonus";
+                        adjustmentAmount = value;
+                    } else if (leaveRadio.isSelected()) {
+                        type = "Leave with Pay";
+                        adjustmentAmount = value * selected.getHourlyRate();
+                    } else if (overtimeRadio.isSelected()) {
+                        type = "Overtime";
+                        adjustmentAmount = value * selected.getHourlyRate() * 1.5;
+                    } else {
+                        type = "Deduction";
+                        adjustmentAmount = -value;
+                    }
+
+                    return new Adjustment(type, adjustmentAmount, notesArea.getText());
                 } catch (NumberFormatException e) {
-                    DialogHelper.showError("Invalid deduction amount");
+                    showError("Please enter a valid number");
                     return null;
                 }
             }
             return null;
         });
 
-        Optional<PayrollAdjustment> result = dialog.showAndWait();
+        Optional<Adjustment> result = dialog.showAndWait();
         result.ifPresent(adj -> {
-            selected.setTotalDeductions(adj.deduction);
-            selected.setNetPay(selected.getBaseSalary() - adj.deduction);
+            double newAdjustment = selected.getAdjustment() + adj.amount;
+            double newNetPay = selected.getBaseSalary() + newAdjustment;
+
+            selected.setAdjustment(newAdjustment);
+            selected.setNetPay(newNetPay);
             selected.setNotes(adj.notes);
+
             payrollTable.refresh();
-            DialogHelper.showSuccess("Adjustment applied!");
+
+            showInfo("Adjustment Applied!\n\n" +
+                    "Type: " + adj.type + "\n" +
+                    "Amount: ₱" + String.format("%,.2f", adj.amount) + "\n" +
+                    "New Net Pay: ₱" + String.format("%,.2f", newNetPay));
         });
     }
 
     @FXML
     private void handleViewPayslip() {
-        DialogHelper.showInfo("Payslip view feature coming soon!");
+        PayrollDisplay selected = payrollTable.getSelectionModel().getSelectedItem();
+        if (selected == null) {
+            showWarning("Please select an employee!");
+            return;
+        }
+
+        try {
+            Employee emp = employeeDAO.getEmployeeById(selected.getEmployeeId());
+            Position pos = positionDAO.getPositionById(emp.getPositionId());
+            Department dept = departmentDAO.getDepartmentById(emp.getDepartmentId());
+
+            String payslip = generatePayslip(emp, pos, dept, selected);
+
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Payslip - " + emp.getName());
+            alert.setHeaderText(null);
+
+            TextArea textArea = new TextArea(payslip);
+            textArea.setEditable(false);
+            textArea.setWrapText(true);
+            textArea.setPrefRowCount(25);
+            textArea.setStyle("-fx-font-family: 'Courier New'; -fx-font-size: 12px;");
+
+            alert.getDialogPane().setContent(textArea);
+            alert.getDialogPane().setPrefWidth(650);
+
+            // Add Print button
+            ButtonType printButton = new ButtonType("🖨️ Print", ButtonBar.ButtonData.LEFT);
+            alert.getButtonTypes().add(0, printButton);
+
+            Optional<ButtonType> result = alert.showAndWait();
+            if (result.isPresent() && result.get() == printButton) {
+                handlePrintPayslip(payslip, emp.getName());
+            }
+
+        } catch (SQLException e) {
+            showError("Failed to generate payslip: " + e.getMessage());
+        }
+    }
+
+    private void handlePrintPayslip(String payslip, String employeeName) {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Save Payslip");
+        fileChooser.setInitialFileName("payslip_" + employeeName.replace(" ", "_") + ".txt");
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Text Files", "*.txt"));
+
+        Stage stage = (Stage) payrollTable.getScene().getWindow();
+        File file = fileChooser.showSaveDialog(stage);
+
+        if (file != null) {
+            try (PrintWriter writer = new PrintWriter(new FileWriter(file))) {
+                writer.print(payslip);
+                showInfo("Payslip saved!\n\n" + file.getAbsolutePath() + "\n\nYou can now print this file.");
+            } catch (Exception e) {
+                showError("Failed to save payslip: " + e.getMessage());
+            }
+        }
+    }
+
+    private String generatePayslip(Employee emp, Position pos, Department dept, PayrollDisplay pd) {
+        StringBuilder adjustmentDetails = new StringBuilder();
+        if (pd.getAdjustment() != 0) {
+            adjustmentDetails.append(String.format("Amount:           ₱%,.2f\n", pd.getAdjustment()));
+            if (!pd.getNotes().isEmpty()) {
+                adjustmentDetails.append(String.format("Details:          %s\n", pd.getNotes()));
+            }
+        } else {
+            adjustmentDetails.append("None\n");
+        }
+
+        return String.format(
+                "═══════════════════════════════════════════════\n" +
+                        "           HR PAYROLL SYSTEM\n" +
+                        "              EMPLOYEE PAYSLIP\n" +
+                        "               %s %d\n" +
+                        "═══════════════════════════════════════════════\n\n" +
+                        "EMPLOYEE INFORMATION\n" +
+                        "─────────────────────────────────────────────\n" +
+                        "Name:             %s\n" +
+                        "QR Code:          %s\n" +
+                        "Position:         %s\n" +
+                        "Department:       %s\n\n" +
+                        "WORK SUMMARY\n" +
+                        "─────────────────────────────────────────────\n" +
+                        "Hourly Rate:      ₱%.2f/hour\n" +
+                        "Hours Worked:     %.2f hours\n" +
+                        "Base Salary:      ₱%,.2f\n\n" +
+                        "ADJUSTMENTS\n" +
+                        "─────────────────────────────────────────────\n" +
+                        "%s\n" +
+                        "═══════════════════════════════════════════════\n" +
+                        "NET PAY:          ₱%,.2f\n" +
+                        "═══════════════════════════════════════════════\n\n" +
+                        "Processed: %s\n" +
+                        "This is a computer-generated payslip.\n",
+                monthCombo.getValue(), selectedYear,
+                emp.getName(), emp.getQrCode(),
+                pos.getTitle(), dept.getName(),
+                pd.getHourlyRate(), pd.getHoursWorked(), pd.getBaseSalary(),
+                adjustmentDetails.toString(),
+                pd.getNetPay(),
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("MMM dd, yyyy hh:mm a"))
+        );
     }
 
     @FXML
     private void handleSendPayslips() {
-        DialogHelper.showInfo("Email feature coming soon!");
+        if (payrollList.isEmpty()) {
+            showWarning("No payroll data available!");
+            return;
+        }
+
+        showInfo("📧 Email Payslips\n\n" +
+                "This feature requires email configuration.\n\n" +
+                "Current options:\n" +
+                "• View individual payslips and print\n" +
+                "• Export all payslips to text files\n\n" +
+                "Contact your system administrator to set up email functionality.");
     }
 
     @FXML
     private void handleExportPayroll() {
-        DialogHelper.showInfo("Export feature coming soon!");
+        if (payrollList.isEmpty()) {
+            showWarning("No payroll data to export!");
+            return;
+        }
+
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Save Payroll Summary");
+        fileChooser.setInitialFileName("payroll_" + monthCombo.getValue() + "_" + selectedYear + ".txt");
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Text Files", "*.txt"));
+
+        Stage stage = (Stage) payrollTable.getScene().getWindow();
+        File file = fileChooser.showSaveDialog(stage);
+
+        if (file != null) {
+            try (PrintWriter writer = new PrintWriter(new FileWriter(file))) {
+                // Header
+                writer.println("═══════════════════════════════════════════════════════════════");
+                writer.println("                    PAYROLL SUMMARY REPORT");
+                writer.println("                  " + monthCombo.getValue() + " " + selectedYear);
+                writer.println("═══════════════════════════════════════════════════════════════\n");
+
+                // Table header
+                writer.println(String.format("%-15s %-25s %10s %12s %12s %15s",
+                        "QR Code", "Name", "Hours", "Hourly Rate", "Base Salary", "Net Pay"));
+                writer.println("───────────────────────────────────────────────────────────────");
+
+                double totalHours = 0;
+                double totalBase = 0;
+                double totalNet = 0;
+
+                for (PayrollDisplay pd : payrollList) {
+                    writer.println(String.format("%-15s %-25s %10.2f ₱%11.2f ₱%11.2f ₱%14.2f",
+                            pd.getQrCode(),
+                            pd.getEmployeeName().length() > 25 ? pd.getEmployeeName().substring(0, 22) + "..." : pd.getEmployeeName(),
+                            pd.getHoursWorked(),
+                            pd.getHourlyRate(),
+                            pd.getBaseSalary(),
+                            pd.getNetPay()
+                    ));
+
+                    totalHours += pd.getHoursWorked();
+                    totalBase += pd.getBaseSalary();
+                    totalNet += pd.getNetPay();
+                }
+
+                writer.println("───────────────────────────────────────────────────────────────");
+                writer.println(String.format("%-15s %-25s %10.2f %12s ₱%11.2f ₱%14.2f",
+                        "", "TOTAL", totalHours, "", totalBase, totalNet));
+                writer.println("═══════════════════════════════════════════════════════════════");
+                writer.println("\nGenerated: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("MMM dd, yyyy hh:mm a")));
+                writer.println("Total Employees: " + payrollList.size());
+
+                showInfo("Export Successful!\n\n" +
+                        "Payroll summary saved to:\n" +
+                        file.getAbsolutePath() + "\n\n" +
+                        "You can now print this file.");
+
+            } catch (Exception e) {
+                showError("Export failed: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }
     }
 
     @FXML
     private void handleSearch() {
         String searchTerm = payrollSearchField.getText().trim();
+
         if (searchTerm.isEmpty()) {
-            handleCalculatePayroll();
+            // Reload from database
+            loadExistingPayroll();
             return;
         }
 
         ObservableList<PayrollDisplay> filtered = FXCollections.observableArrayList();
+        String lowerSearch = searchTerm.toLowerCase();
+
         for (PayrollDisplay pd : payrollList) {
-            if (pd.getEmployeeName().toLowerCase().contains(searchTerm.toLowerCase()) ||
-                    pd.getQrCode().toLowerCase().contains(searchTerm.toLowerCase())) {
+            if (pd.getEmployeeName().toLowerCase().contains(lowerSearch) ||
+                    pd.getQrCode().toLowerCase().contains(lowerSearch)) {
                 filtered.add(pd);
             }
         }
+
         payrollTable.setItems(filtered);
     }
 
-    // Inner classes
+    private void showError(String message) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle("Error");
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
+
+    private void showWarning(String message) {
+        Alert alert = new Alert(Alert.AlertType.WARNING);
+        alert.setTitle("Warning");
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
+
+    private void showInfo(String message) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Information");
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
+
+    // ==================== INNER CLASSES ====================
+
     public static class PayrollDisplay {
         private final int employeeId;
         private final String qrCode;
         private final String employeeName;
+        private final double hoursWorked;
+        private final double hourlyRate;
         private final double baseSalary;
-        private final int lateCount;
-        private final int absentCount;
-        private double totalDeductions;
+        private double adjustment;
         private double netPay;
         private String notes;
 
         public PayrollDisplay(int employeeId, String qrCode, String employeeName,
-                              double baseSalary, int lateCount, int absentCount,
-                              double totalDeductions, double netPay, String notes) {
+                              double hoursWorked, double hourlyRate, double baseSalary,
+                              double adjustment, double netPay, String notes) {
             this.employeeId = employeeId;
             this.qrCode = qrCode;
             this.employeeName = employeeName;
+            this.hoursWorked = hoursWorked;
+            this.hourlyRate = hourlyRate;
             this.baseSalary = baseSalary;
-            this.lateCount = lateCount;
-            this.absentCount = absentCount;
-            this.totalDeductions = totalDeductions;
+            this.adjustment = adjustment;
             this.netPay = netPay;
             this.notes = notes;
         }
 
+        // Getters
         public int getEmployeeId() { return employeeId; }
         public String getQrCode() { return qrCode; }
         public String getEmployeeName() { return employeeName; }
+        public double getHoursWorked() { return hoursWorked; }
+        public double getHourlyRate() { return hourlyRate; }
         public double getBaseSalary() { return baseSalary; }
-        public int getLateCount() { return lateCount; }
-        public int getAbsentCount() { return absentCount; }
-        public double getTotalDeductions() { return totalDeductions; }
+        public double getAdjustment() { return adjustment; }
         public double getNetPay() { return netPay; }
         public String getNotes() { return notes; }
 
-        public void setTotalDeductions(double totalDeductions) {
-            this.totalDeductions = totalDeductions;
-        }
-        public void setNetPay(double netPay) {
-            this.netPay = netPay;
-        }
-        public void setNotes(String notes) {
-            this.notes = notes;
-        }
+        // Setters
+        public void setAdjustment(double adjustment) { this.adjustment = adjustment; }
+        public void setNetPay(double netPay) { this.netPay = netPay; }
+        public void setNotes(String notes) { this.notes = notes; }
     }
-
-    private static class PayrollAdjustment {
-        final double deduction;
+    private static class Adjustment {
+        final String type;
+        final double amount;
         final String notes;
 
-        PayrollAdjustment(double deduction, String notes) {
-            this.deduction = deduction;
+        Adjustment(String type, double amount, String notes) {
+            this.type = type;
+            this.amount = amount;
             this.notes = notes;
         }
     }

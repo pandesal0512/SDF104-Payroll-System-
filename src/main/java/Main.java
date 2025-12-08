@@ -15,10 +15,9 @@ public class Main extends Application {
 
         // Load login screen instead of main window
         Parent root = FXMLLoader.load(getClass().getResource("/fxml/login.fxml"));
-        Scene scene = new Scene(root, 400, 450);
-
+        Scene scene = new Scene(root, 500, 550);
         stage.setTitle("HR Payroll System - Login");
-        stage.setResizable(false);
+        stage.setResizable(true);
         stage.setScene(scene);
         stage.show();
     }

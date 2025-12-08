@@ -15,7 +15,7 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<ScrollPane fitToWidth="true" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controllers.EmployeeFormController">
+<ScrollPane fitToWidth="true" prefHeight="860.0" prefWidth="504.0" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controllers.EmployeeFormController">
     <content>
         <VBox spacing="20.0" style="-fx-background-color: white;">
             <padding>

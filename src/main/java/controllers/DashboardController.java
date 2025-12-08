@@ -36,6 +36,7 @@ public class DashboardController {
     @FXML
     public void initialize() {
         setupTableColumns();
+        setupStatusColoring();     // <-- ADD THIS
         loadStatistics();
         loadRecentActivity();
     }
@@ -49,21 +50,58 @@ public class DashboardController {
         recentActivityTable.setItems(activityList);
     }
 
+    /**
+     * Apply color styling to the Status column
+     */
+    private void setupStatusColoring() {
+        statusColumn.setCellFactory(col -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+
+                if (empty || item == null) {
+                    setText(null);
+                    setStyle("");
+                    return;
+                }
+
+                setText(item);
+
+                // Normalize status
+                String s = item.toLowerCase();
+
+                switch (s) {
+                    case "on time":
+                        setStyle("-fx-background-color: #3CB371; -fx-text-fill: black;"); // green
+                        break;
+
+                    case "late":
+                        setStyle("-fx-background-color: #FF6F61; -fx-text-fill: white;"); // red/orange
+                        break;
+
+                    case "complete":
+                        setStyle("-fx-background-color: #4A90E2; -fx-text-fill: white;"); // blue
+                        break;
+
+                    default:
+                        setStyle(""); // default row colors from CSS
+                        break;
+                }
+            }
+        });
+    }
+
     private void loadStatistics() {
         try {
-            // Total Employees
             List<Employee> allEmployees = employeeDAO.getAllEmployees();
             totalEmployeesLabel.setText(String.valueOf(allEmployees.size()));
 
-            // Active Employees
             List<Employee> activeEmployees = employeeDAO.getActiveEmployees();
             activeEmployeesLabel.setText(String.valueOf(activeEmployees.size()));
 
-            // Total Departments
             List<Department> departments = departmentDAO.getAllDepartments();
             totalDepartmentsLabel.setText(String.valueOf(departments.size()));
 
-            // Today's Attendance
             String today = DateTimeHelper.getCurrentDate();
             List<Attendance> todayRecords = attendanceDAO.getAttendanceByDate(today);
 

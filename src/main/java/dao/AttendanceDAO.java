@@ -4,6 +4,8 @@ import database.DatabaseConnection;
 import models.Attendance;
 
 import java.sql.*;
+import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -13,7 +15,7 @@ public class AttendanceDAO {
      * Add new attendance record
      */
     public void addAttendance(Attendance attendance) throws SQLException {
-        String sql = "INSERT INTO attendance (employee_id, date, time_in, time_out, status) VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO attendance (employee_id, date, time_in, time_out, status, hours_worked) VALUES (?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -23,9 +25,28 @@ public class AttendanceDAO {
             stmt.setString(3, attendance.getTimeIn());
             stmt.setString(4, attendance.getTimeOut());
             stmt.setString(5, attendance.getStatus());
-            stmt.executeUpdate();
+            stmt.setDouble(6, 0.0); // Hours will be calculated on time out
 
-            System.out.println("Attendance recorded for employee ID: " + attendance.getEmployeeId());
+            stmt.executeUpdate();
+            System.out.println("✓ Attendance recorded for employee ID: " + attendance.getEmployeeId());
+        }
+    }
+
+    /**
+     * Calculate hours worked from time in and time out
+     */
+    private double calculateHoursWorked(String timeIn, String timeOut) {
+        if (timeIn == null || timeOut == null || timeIn.isEmpty() || timeOut.isEmpty()) {
+            return 0.0;
+        }
+
+        try {
+            LocalTime in = LocalTime.parse(timeIn);
+            LocalTime out = LocalTime.parse(timeOut);
+            long minutes = ChronoUnit.MINUTES.between(in, out);
+            return minutes / 60.0;
+        } catch (Exception e) {
+            return 0.0;
         }
     }
 
@@ -115,20 +136,24 @@ public class AttendanceDAO {
     }
 
     /**
-     * Update attendance (for time out)
+     * Update attendance (for time out) - NOW WITH HOURS CALCULATION
      */
     public void updateAttendance(Attendance attendance) throws SQLException {
-        String sql = "UPDATE attendance SET time_out = ?, status = ? WHERE id = ?";
+        // Calculate hours worked
+        double hoursWorked = calculateHoursWorked(attendance.getTimeIn(), attendance.getTimeOut());
+
+        String sql = "UPDATE attendance SET time_out = ?, status = ?, hours_worked = ? WHERE id = ?";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, attendance.getTimeOut());
             stmt.setString(2, attendance.getStatus());
-            stmt.setInt(3, attendance.getId());
+            stmt.setDouble(3, hoursWorked);
+            stmt.setInt(4, attendance.getId());
             stmt.executeUpdate();
 
-            System.out.println("Attendance updated (ID: " + attendance.getId() + ")");
+            System.out.println("✓ Attendance updated (ID: " + attendance.getId() + ") - Hours worked: " + String.format("%.2f", hoursWorked));
         }
     }
 
@@ -214,7 +239,53 @@ public class AttendanceDAO {
             stmt.setInt(1, id);
             stmt.executeUpdate();
 
-            System.out.println("Attendance deleted (ID: " + id + ")");
+            System.out.println("✓ Attendance deleted (ID: " + id + ")");
         }
+    }
+
+    /**
+     * Get total hours worked for an employee in a date range
+     */
+    public double getTotalHoursWorked(int employeeId, String startDate, String endDate) throws SQLException {
+        String sql = "SELECT SUM(COALESCE(hours_worked, 0)) FROM attendance " +
+                "WHERE employee_id = ? AND date BETWEEN ? AND ? AND time_out IS NOT NULL";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, employeeId);
+            stmt.setString(2, startDate);
+            stmt.setString(3, endDate);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                double hours = rs.getDouble(1);
+                System.out.println("✓ Total hours for employee " + employeeId + ": " + String.format("%.2f", hours));
+                return hours;
+            }
+        }
+        return 0.0;
+    }
+
+    /**
+     * Get attendance count for employee in a month
+     */
+    public int getAttendanceCountForMonth(int employeeId, int year, int month) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM attendance WHERE employee_id = ? " +
+                "AND strftime('%Y', date) = ? AND strftime('%m', date) = ?";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, employeeId);
+            stmt.setString(2, String.valueOf(year));
+            stmt.setString(3, String.format("%02d", month));
+
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
+        }
+        return 0;
     }
 }

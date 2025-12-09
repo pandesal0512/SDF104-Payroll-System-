@@ -278,7 +278,7 @@ public class AttendanceController {
 
             attendanceDAO.addAttendance(attendance);
 
-            showInfo("✅ Time In Recorded!\n\n" +
+            showInfo("Time In Recorded!\n\n" +
                     selectedEmployee.getName() + "\n" +
                     LocalTime.now().format(DateTimeFormatter.ofPattern("hh:mm a")));
 
@@ -313,7 +313,7 @@ public class AttendanceController {
 
                 attendanceDAO.updateAttendance(attendance);
 
-                showInfo("✅ Time Out Recorded!\n\n" +
+                showInfo("Time Out Recorded!\n\n" +
                         selectedEmployee.getName() + "\n" +
                         LocalTime.now().format(DateTimeFormatter.ofPattern("hh:mm a")) + "\n" +
                         String.format("Hours worked: %.2f", hoursWorked));
@@ -527,7 +527,7 @@ public class AttendanceController {
                         DateTimeFormatter.ofPattern("hh:mm a")));
                 writer.println("\n═══════════════════════════════════════════════════════════");
 
-                showInfo("✅ Export Successful!\n\n" +
+                showInfo(" Export Successful!\n\n" +
                         attendanceList.size() + " records exported to:\n" +
                         file.getAbsolutePath() + "\n\n" +
                         "You can now print this file.");

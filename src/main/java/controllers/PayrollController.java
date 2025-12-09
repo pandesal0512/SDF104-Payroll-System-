@@ -308,7 +308,7 @@ public class PayrollController {
             if (processed == 0) {
                 showWarning("No employees found for the selected period!");
             } else {
-                showInfo("✅ Payroll calculated for " + processed + " employees!\n\n" +
+                showInfo("Payroll calculated for " + processed + " employees!\n\n" +
                         "Based on: Hours Worked × Hourly Rate\n\n" +
                         "⚠️ Click 'Process All' to save to database.\n" +
                         "Data will NOT persist until you click 'Process All'!");
@@ -366,7 +366,7 @@ public class PayrollController {
                 }
             }
 
-            String message = "✅ Payroll Processing Complete!\n\n";
+            String message = "Payroll Processing Complete!\n\n";
             if (processed > 0) {
                 message += "New records: " + processed + " employees\n";
             }
@@ -481,7 +481,7 @@ public class PayrollController {
 
             payrollTable.refresh();
 
-            showInfo("✅ Adjustment Applied!\n\n" +
+            showInfo("Adjustment Applied!\n\n" +
                     "Type: " + adj.type + "\n" +
                     "Amount: ₱" + String.format("%,.2f", adj.amount) + "\n" +
                     "New Net Pay: ₱" + String.format("%,.2f", newNetPay) + "\n\n" +
@@ -543,7 +543,7 @@ public class PayrollController {
         if (file != null) {
             try (PrintWriter writer = new PrintWriter(new FileWriter(file))) {
                 writer.print(payslip);
-                showInfo("✅ Payslip saved!\n\n" + file.getAbsolutePath() + "\n\nYou can now print this file.");
+                showInfo("Payslip saved!\n\n" + file.getAbsolutePath() + "\n\nYou can now print this file.");
             } catch (Exception e) {
                 showError("Failed to save payslip: " + e.getMessage());
             }
@@ -667,7 +667,7 @@ public class PayrollController {
                 writer.println("\nGenerated: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("MMM dd, yyyy hh:mm a")));
                 writer.println("Total Employees: " + payrollList.size());
 
-                showInfo("✅ Export Successful!\n\n" +
+                showInfo("Export Successful!\n\n" +
                         "Payroll summary saved to:\n" +
                         file.getAbsolutePath() + "\n\n" +
                         "You can now print this file.");

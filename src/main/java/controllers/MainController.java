@@ -6,7 +6,6 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.control.Button;
 import javafx.scene.layout.StackPane;
 import javafx.scene.Node;
-import javafx.stage.Stage;
 import models.User;
 
 import java.io.IOException;
@@ -40,31 +39,31 @@ public class MainController {
 
     @FXML
     private void loadDashboard() {
-        loadView("/fxml/dashboard.fxml");
+        loadView("/resources/dashboard.fxml");
         setActiveButton(dashboardButton);
     }
 
     @FXML
     private void loadEmployees() {
-        loadView("/fxml/employees.fxml");
+        loadView("/resources/employees.fxml");
         setActiveButton(employeesButton);
     }
 
     @FXML
     private void loadAttendance() {
-        loadView("/fxml/attendance.fxml");
+        loadView("/resources/attendance.fxml");
         setActiveButton(attendanceButton);
     }
 
     @FXML
     private void loadPayroll() {
-        loadView("/fxml/payroll.fxml");
+        loadView("/resources/payroll.fxml");
         setActiveButton(payrollButton);
     }
 
     @FXML
     private void loadDepartments() {
-        loadView("/fxml/departments-positions.fxml");
+        loadView("/resources/departments-positions.fxml");
         setActiveButton(departmentsButton);
     }
 

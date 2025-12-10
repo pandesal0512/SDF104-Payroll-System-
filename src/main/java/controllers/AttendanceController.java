@@ -19,6 +19,7 @@ import models.Employee;
 import models.Attendance;
 import models.Department;
 import models.Position;
+import database.DatabaseConnection;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -29,6 +30,10 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import dao.ShiftDAO;
+import models.Shift;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 
 public class AttendanceController {
 
@@ -58,6 +63,7 @@ public class AttendanceController {
     private AttendanceDAO attendanceDAO = new AttendanceDAO();
     private DepartmentDAO departmentDAO = new DepartmentDAO();
     private PositionDAO positionDAO = new PositionDAO();
+    private final ShiftDAO shiftDAO = new ShiftDAO();
 
     private Employee selectedEmployee;
     private ObservableList<AttendanceDisplay> attendanceList = FXCollections.observableArrayList();
@@ -215,12 +221,14 @@ public class AttendanceController {
             empPositionLabel.setText(pos != null ? pos.getTitle() : "Unknown");
             empDepartmentLabel.setText(dept != null ? dept.getName() : "Unknown");
 
+            // Check today's attendance
             Attendance todayRecord = attendanceDAO.getAttendanceByEmployeeAndDate(
                     employee.getId(),
                     LocalDate.now().toString()
             );
 
             if (todayRecord != null) {
+                // Already has attendance today
                 if (todayRecord.getTimeOut() == null || todayRecord.getTimeOut().isEmpty()) {
                     attendanceStatusLabel.setText("ALREADY TIMED IN");
                     attendanceStatusLabel.setStyle("-fx-text-fill: #4CAF50; -fx-font-weight: bold;");
@@ -233,15 +241,41 @@ public class AttendanceController {
                     timeOutButton.setDisable(true);
                 }
             } else {
+                // No attendance yet - check if late based on shift
                 LocalTime now = LocalTime.now();
-                LocalTime cutoff = LocalTime.of(8, 30);
 
-                if (now.isBefore(cutoff) || now.equals(cutoff)) {
-                    attendanceStatusLabel.setText("ON TIME");
-                    attendanceStatusLabel.setStyle("-fx-text-fill: #4CAF50; -fx-font-weight: bold;");
+                // Get employee's shift from position
+                Shift employeeShift = null;
+                if (pos != null && pos.hasShift()) {
+                    employeeShift = shiftDAO.getShiftById(pos.getShiftId());
+                }
+
+                if (employeeShift != null) {
+                    // Use shift-specific late detection
+                    if (employeeShift.isLate(now)) {
+                        attendanceStatusLabel.setText("LATE - " + employeeShift.getName());
+                        attendanceStatusLabel.setStyle("-fx-text-fill: #FF9800; -fx-font-weight: bold;");
+                    } else {
+                        attendanceStatusLabel.setText("ON TIME - " + employeeShift.getName());
+                        attendanceStatusLabel.setStyle("-fx-text-fill: #4CAF50; -fx-font-weight: bold;");
+                    }
                 } else {
-                    attendanceStatusLabel.setText("LATE");
-                    attendanceStatusLabel.setStyle("-fx-text-fill: #FF9800; -fx-font-weight: bold;");
+                    // No shift assigned - try to auto-detect shift
+                    employeeShift = shiftDAO.findShiftForTimeIn(now);
+
+                    if (employeeShift != null) {
+                        if (employeeShift.isLate(now)) {
+                            attendanceStatusLabel.setText("LATE - " + employeeShift.getName() + " (auto-detected)");
+                            attendanceStatusLabel.setStyle("-fx-text-fill: #FF9800; -fx-font-weight: bold;");
+                        } else {
+                            attendanceStatusLabel.setText("ON TIME - " + employeeShift.getName() + " (auto-detected)");
+                            attendanceStatusLabel.setStyle("-fx-text-fill: #4CAF50; -fx-font-weight: bold;");
+                        }
+                    } else {
+                        // Cannot determine shift
+                        attendanceStatusLabel.setText("⚠️ NO SHIFT ASSIGNED");
+                        attendanceStatusLabel.setStyle("-fx-text-fill: #d32f2f; -fx-font-weight: bold;");
+                    }
                 }
 
                 timeInButton.setDisable(false);
@@ -253,6 +287,7 @@ public class AttendanceController {
         }
     }
 
+    // 4. REPLACE handleTimeIn() method with shift-aware version
     @FXML
     private void handleTimeIn() {
         if (selectedEmployee == null) {
@@ -262,12 +297,37 @@ public class AttendanceController {
 
         try {
             String today = LocalDate.now().toString();
-            String timeIn = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
-
             LocalTime now = LocalTime.now();
-            LocalTime cutoff = LocalTime.of(8, 30);
-            String status = now.isBefore(cutoff) || now.equals(cutoff) ? "on-time" : "late";
+            String timeIn = now.format(DateTimeFormatter.ofPattern("HH:mm:ss"));
 
+            // Get employee's position and shift
+            Position pos = positionDAO.getPositionById(selectedEmployee.getPositionId());
+            Shift employeeShift = null;
+
+            if (pos != null && pos.hasShift()) {
+                employeeShift = shiftDAO.getShiftById(pos.getShiftId());
+            }
+
+            // If no shift assigned, try auto-detect
+            if (employeeShift == null) {
+                employeeShift = shiftDAO.findShiftForTimeIn(now);
+            }
+
+            // Determine if late
+            String status;
+            String shiftInfo = "";
+
+            if (employeeShift != null) {
+                status = employeeShift.isLate(now) ? "late" : "on-time";
+                shiftInfo = " (" + employeeShift.getName() + ")";
+            } else {
+                // Fallback to old 8:30 AM cutoff if no shift found
+                LocalTime cutoff = LocalTime.of(8, 30);
+                status = now.isBefore(cutoff) || now.equals(cutoff) ? "on-time" : "late";
+                shiftInfo = " (Default schedule)";
+            }
+
+            // Create attendance record
             Attendance attendance = new Attendance(
                     selectedEmployee.getId(),
                     today,
@@ -278,9 +338,24 @@ public class AttendanceController {
 
             attendanceDAO.addAttendance(attendance);
 
-            showInfo("Time In Recorded!\n\n" +
+            // Update shift_id in attendance if shift detected
+            if (employeeShift != null) {
+                // Store shift info in attendance record for reporting
+                Connection conn = DatabaseConnection.getConnection();
+                String updateSql = "UPDATE attendance SET shift_id = ? WHERE id = (SELECT MAX(id) FROM attendance WHERE employee_id = ?)";
+                PreparedStatement stmt = conn.prepareStatement(updateSql);
+                stmt.setInt(1, employeeShift.getId());
+                stmt.setInt(2, selectedEmployee.getId());
+                stmt.executeUpdate();
+                stmt.close();
+                conn.close();
+            }
+
+            showInfo("✓ Time In Recorded!\n\n" +
                     selectedEmployee.getName() + "\n" +
-                    LocalTime.now().format(DateTimeFormatter.ofPattern("hh:mm a")));
+                    now.format(DateTimeFormatter.ofPattern("hh:mm a")) + "\n" +
+                    "Status: " + (status.equals("on-time") ? "ON TIME" : "LATE") +
+                    shiftInfo);
 
             loadTodayAttendance();
             displayEmployee(selectedEmployee);
@@ -288,6 +363,60 @@ public class AttendanceController {
         } catch (SQLException e) {
             showError("Failed to record time in: " + e.getMessage());
         }
+    }
+
+    // 5. ADD helper method to show shift information
+    private void showShiftInformation() {
+        try {
+            List<Shift> shifts = shiftDAO.getActiveShifts();
+            StringBuilder info = new StringBuilder();
+
+            info.append("═══════════════════════════════════════════\n");
+            info.append("     HOSPITAL SHIFT SCHEDULE\n");
+            info.append("═══════════════════════════════════════════\n\n");
+
+            for (Shift shift : shifts) {
+                info.append(shift.getShiftEmoji()).append(" ").append(shift.getName()).append("\n");
+                info.append("   Time: ").append(shift.getShiftTimeRange()).append("\n");
+                info.append("   Late: Any time after ").append(shift.getStartTime().format(
+                        DateTimeFormatter.ofPattern("hh:mm a"))).append("\n");
+                info.append("   Hours: ").append(String.format("%.1f", shift.getShiftHours())).append("\n\n");
+            }
+
+            info.append("═══════════════════════════════════════════\n");
+            info.append("⚠️  NO GRACE PERIOD - Exact start time required\n");
+            info.append("═══════════════════════════════════════════\n");
+            info.append("Current Time: ").append(LocalTime.now().format(
+                    DateTimeFormatter.ofPattern("hh:mm a"))).append("\n");
+
+            // Find current shift
+            Shift currentShift = shiftDAO.findShiftForTimeIn(LocalTime.now());
+            if (currentShift != null) {
+                info.append("Active Shift: ").append(currentShift.getName()).append("\n");
+            }
+
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Shift Information");
+            alert.setHeaderText("Hospital 24/7 Operations");
+
+            TextArea textArea = new TextArea(info.toString());
+            textArea.setEditable(false);
+            textArea.setWrapText(true);
+            textArea.setPrefRowCount(15);
+            textArea.setStyle("-fx-font-family: 'Courier New'; -fx-font-size: 12px;");
+
+            alert.getDialogPane().setContent(textArea);
+            alert.showAndWait();
+
+        } catch (SQLException e) {
+            showError("Failed to load shift information: " + e.getMessage());
+        }
+    }
+
+
+    @FXML
+    private void handleShowShiftInfo() {
+        showShiftInformation();
     }
 
     @FXML

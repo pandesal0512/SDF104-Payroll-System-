@@ -10,26 +10,58 @@ import java.util.List;
 public class PositionDAO {
 
     /**
-     * Add a new position to the database
+     * Check if shift_id column exists in positions table
      */
-    public void addPosition(Position position) throws SQLException {
-        String sql = "INSERT INTO positions (title, department_id, base_salary, description) VALUES (?, ?, ?, ?)";
-
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            stmt.setString(1, position.getTitle());
-            stmt.setInt(2, position.getDepartmentId());
-            stmt.setDouble(3, position.getBaseSalary());
-            stmt.setString(4, position.getDescription());
-            stmt.executeUpdate();
-
-            System.out.println("Position added: " + position.getTitle() + " (Salary: ₱" + position.getBaseSalary() + ")");
+    private boolean hasShiftColumn(Connection conn) {
+        try {
+            Statement stmt = conn.createStatement();
+            ResultSet rs = stmt.executeQuery("SELECT shift_id FROM positions LIMIT 1");
+            rs.close();
+            stmt.close();
+            return true;
+        } catch (SQLException e) {
+            // Column doesn't exist
+            return false;
         }
     }
 
     /**
-     * Get a position by ID
+     * Add a new position to the database (WITH SHIFT if column exists)
+     */
+    public void addPosition(Position position) throws SQLException {
+        try (Connection conn = DatabaseConnection.getConnection()) {
+
+            boolean hasShift = hasShiftColumn(conn);
+            String sql;
+
+            if (hasShift) {
+                sql = "INSERT INTO positions (title, department_id, base_salary, hourly_rate, description, shift_id) " +
+                        "VALUES (?, ?, ?, ?, ?, ?)";
+            } else {
+                sql = "INSERT INTO positions (title, department_id, base_salary, hourly_rate, description) " +
+                        "VALUES (?, ?, ?, ?, ?)";
+            }
+
+            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                stmt.setString(1, position.getTitle());
+                stmt.setInt(2, position.getDepartmentId());
+                stmt.setDouble(3, position.getBaseSalary());
+                stmt.setDouble(4, position.getHourlyRate());
+                stmt.setString(5, position.getDescription());
+
+                if (hasShift) {
+                    stmt.setInt(6, position.getShiftId());
+                }
+
+                stmt.executeUpdate();
+                System.out.println("Position added: " + position.getTitle() +
+                        " (Hourly Rate: ₱" + position.getHourlyRate() + ")");
+            }
+        }
+    }
+
+    /**
+     * Get a position by ID (SAFE - handles missing shift_id column)
      */
     public Position getPositionById(int id) throws SQLException {
         String sql = "SELECT * FROM positions WHERE id = ?";
@@ -41,20 +73,48 @@ public class PositionDAO {
             ResultSet rs = stmt.executeQuery();
 
             if (rs.next()) {
+                int shiftId = 0;
+
+                // Safely check if shift_id exists
+                try {
+                    shiftId = rs.getInt("shift_id");
+                    if (rs.wasNull()) {
+                        shiftId = 0;
+                    }
+                } catch (SQLException e) {
+                    // Column doesn't exist - use default
+                    shiftId = 0;
+                }
+
+                // Check if hourly_rate column exists
+                double hourlyRate = 0.0;
+                try {
+                    hourlyRate = rs.getDouble("hourly_rate");
+                    if (rs.wasNull()) {
+                        // Calculate from base_salary
+                        hourlyRate = rs.getDouble("base_salary") / 160.0;
+                    }
+                } catch (SQLException e) {
+                    // hourly_rate column doesn't exist - calculate from base
+                    hourlyRate = rs.getDouble("base_salary") / 160.0;
+                }
+
                 return new Position(
                         rs.getInt("id"),
                         rs.getString("title"),
                         rs.getInt("department_id"),
                         rs.getDouble("base_salary"),
-                        rs.getString("description")
+                        hourlyRate,
+                        rs.getString("description"),
+                        shiftId
                 );
             }
         }
-        return null;  // Not found
+        return null;
     }
 
     /**
-     * Get all positions
+     * Get all positions (SAFE - handles missing columns)
      */
     public List<Position> getAllPositions() throws SQLException {
         List<Position> positions = new ArrayList<>();
@@ -65,12 +125,37 @@ public class PositionDAO {
              ResultSet rs = stmt.executeQuery(sql)) {
 
             while (rs.next()) {
+                int shiftId = 0;
+
+                // Safely check if shift_id exists
+                try {
+                    shiftId = rs.getInt("shift_id");
+                    if (rs.wasNull()) {
+                        shiftId = 0;
+                    }
+                } catch (SQLException e) {
+                    shiftId = 0;
+                }
+
+                // Check if hourly_rate column exists
+                double hourlyRate = 0.0;
+                try {
+                    hourlyRate = rs.getDouble("hourly_rate");
+                    if (rs.wasNull()) {
+                        hourlyRate = rs.getDouble("base_salary") / 160.0;
+                    }
+                } catch (SQLException e) {
+                    hourlyRate = rs.getDouble("base_salary") / 160.0;
+                }
+
                 Position position = new Position(
                         rs.getInt("id"),
                         rs.getString("title"),
                         rs.getInt("department_id"),
                         rs.getDouble("base_salary"),
-                        rs.getString("description")
+                        hourlyRate,
+                        rs.getString("description"),
+                        shiftId
                 );
                 positions.add(position);
             }
@@ -79,7 +164,7 @@ public class PositionDAO {
     }
 
     /**
-     * Get all positions in a specific department
+     * Get all positions in a specific department (SAFE)
      */
     public List<Position> getPositionsByDepartment(int departmentId) throws SQLException {
         List<Position> positions = new ArrayList<>();
@@ -92,12 +177,35 @@ public class PositionDAO {
             ResultSet rs = stmt.executeQuery();
 
             while (rs.next()) {
+                int shiftId = 0;
+
+                try {
+                    shiftId = rs.getInt("shift_id");
+                    if (rs.wasNull()) {
+                        shiftId = 0;
+                    }
+                } catch (SQLException e) {
+                    shiftId = 0;
+                }
+
+                double hourlyRate = 0.0;
+                try {
+                    hourlyRate = rs.getDouble("hourly_rate");
+                    if (rs.wasNull()) {
+                        hourlyRate = rs.getDouble("base_salary") / 160.0;
+                    }
+                } catch (SQLException e) {
+                    hourlyRate = rs.getDouble("base_salary") / 160.0;
+                }
+
                 Position position = new Position(
                         rs.getInt("id"),
                         rs.getString("title"),
                         rs.getInt("department_id"),
                         rs.getDouble("base_salary"),
-                        rs.getString("description")
+                        hourlyRate,
+                        rs.getString("description"),
+                        shiftId
                 );
                 positions.add(position);
             }
@@ -106,22 +214,39 @@ public class PositionDAO {
     }
 
     /**
-     * Update an existing position
+     * Update an existing position (SAFE - checks if shift_id exists)
      */
     public void updatePosition(Position position) throws SQLException {
-        String sql = "UPDATE positions SET title = ?, department_id = ?, base_salary = ?, description = ? WHERE id = ?";
+        try (Connection conn = DatabaseConnection.getConnection()) {
 
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            boolean hasShift = hasShiftColumn(conn);
+            String sql;
 
-            stmt.setString(1, position.getTitle());
-            stmt.setInt(2, position.getDepartmentId());
-            stmt.setDouble(3, position.getBaseSalary());
-            stmt.setString(4, position.getDescription());
-            stmt.setInt(5, position.getId());
-            stmt.executeUpdate();
+            if (hasShift) {
+                sql = "UPDATE positions SET title = ?, department_id = ?, base_salary = ?, " +
+                        "hourly_rate = ?, description = ?, shift_id = ? WHERE id = ?";
+            } else {
+                sql = "UPDATE positions SET title = ?, department_id = ?, base_salary = ?, " +
+                        "hourly_rate = ?, description = ? WHERE id = ?";
+            }
 
-            System.out.println("Position updated: " + position.getTitle());
+            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                stmt.setString(1, position.getTitle());
+                stmt.setInt(2, position.getDepartmentId());
+                stmt.setDouble(3, position.getBaseSalary());
+                stmt.setDouble(4, position.getHourlyRate());
+                stmt.setString(5, position.getDescription());
+
+                if (hasShift) {
+                    stmt.setInt(6, position.getShiftId());
+                    stmt.setInt(7, position.getId());
+                } else {
+                    stmt.setInt(6, position.getId());
+                }
+
+                stmt.executeUpdate();
+                System.out.println("Position updated: " + position.getTitle());
+            }
         }
     }
 

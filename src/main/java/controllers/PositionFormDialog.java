@@ -9,6 +9,8 @@ import javafx.scene.layout.GridPane;
 import models.Department;
 import models.Position;
 import utils.DialogHelper;
+import dao.ShiftDAO;
+import models.Shift;
 
 import java.sql.SQLException;
 import java.util.List;
@@ -21,7 +23,7 @@ public class PositionFormDialog {
 
     private final PositionDAO positionDAO = new PositionDAO();
     private final DepartmentDAO departmentDAO = new DepartmentDAO();
-
+    private final ShiftDAO shiftDAO = new ShiftDAO();
     /**
      * Show dialog to add a new position
      */
@@ -52,19 +54,24 @@ public class PositionFormDialog {
         GridPane grid = createFormGrid();
 
         TextField titleField = new TextField();
-        titleField.setPromptText("e.g., Software Developer");
+        titleField.setPromptText("e.g., ICU Nurse, ER Doctor");
 
         ComboBox<Department> departmentCombo = new ComboBox<>();
         departmentCombo.setPromptText("Select Department");
 
+        // NEW: Shift selection combo box
+        ComboBox<Shift> shiftCombo = new ComboBox<>();
+        shiftCombo.setPromptText("Select Work Shift");
+
         TextField salaryField = new TextField();
-        salaryField.setPromptText("e.g., 50000.00");
+        salaryField.setPromptText("e.g., 150.00 per hour");
 
         TextArea descriptionArea = new TextArea();
         descriptionArea.setPromptText("Job description (optional)");
         descriptionArea.setPrefRowCount(3);
 
         try {
+            // Load departments
             List<Department> departments = departmentDAO.getAllDepartments();
             departmentCombo.setItems(FXCollections.observableArrayList(departments));
 
@@ -84,49 +91,106 @@ public class PositionFormDialog {
                 }
             });
 
+            // NEW: Load shifts
+            List<Shift> shifts = shiftDAO.getActiveShifts();
+            shiftCombo.setItems(FXCollections.observableArrayList(shifts));
+
+            shiftCombo.setCellFactory(param -> new ListCell<Shift>() {
+                @Override
+                protected void updateItem(Shift item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || item == null) {
+                        setText("");
+                    } else {
+                        setText(item.toString()); // Uses Shift's toString() with emoji
+                    }
+                }
+            });
+
+            shiftCombo.setButtonCell(new ListCell<Shift>() {
+                @Override
+                protected void updateItem(Shift item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || item == null) {
+                        setText("");
+                    } else {
+                        setText(item.toString());
+                    }
+                }
+            });
+
         } catch (SQLException e) {
-            DialogHelper.showError("Failed to load departments: " + e.getMessage());
+            DialogHelper.showError("Failed to load data: " + e.getMessage());
             return Optional.empty();
         }
 
         if (isEditMode) {
             titleField.setText(existingPosition.getTitle());
-            salaryField.setText(String.valueOf(existingPosition.getBaseSalary()));
+            salaryField.setText(String.valueOf(existingPosition.getHourlyRate()));
             descriptionArea.setText(existingPosition.getDescription());
 
             try {
                 Department dept = departmentDAO.getDepartmentById(existingPosition.getDepartmentId());
                 departmentCombo.setValue(dept);
+
+                // NEW: Set existing shift
+                if (existingPosition.hasShift()) {
+                    Shift shift = shiftDAO.getShiftById(existingPosition.getShiftId());
+                    shiftCombo.setValue(shift);
+                }
             } catch (SQLException e) {
                 e.printStackTrace();
             }
         }
 
+        // Build form layout
         grid.add(new Label("Position Title:"), 0, 0);
         grid.add(titleField, 1, 0);
 
         grid.add(new Label("Department:"), 0, 1);
         grid.add(departmentCombo, 1, 1);
 
-        grid.add(new Label("Base Salary (₱):"), 0, 2);
-        grid.add(salaryField, 1, 2);
+        // NEW: Add shift selection
+        grid.add(new Label("Work Shift:"), 0, 2);
+        grid.add(shiftCombo, 1, 2);
 
-        grid.add(new Label("Description:"), 0, 3);
-        grid.add(descriptionArea, 1, 3);
+        grid.add(new Label("Hourly Rate (₱):"), 0, 3);
+        grid.add(salaryField, 1, 3);
+
+        grid.add(new Label("Description:"), 0, 4);
+        grid.add(descriptionArea, 1, 4);
+
+        // NEW: Add shift info label
+        Label shiftInfoLabel = new Label("⚠️ Shift determines when employee is marked late (exact start time)");
+        shiftInfoLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #666; -fx-font-style: italic;");
+        shiftInfoLabel.setWrapText(true);
+        GridPane.setColumnSpan(shiftInfoLabel, 2);
+        grid.add(shiftInfoLabel, 0, 5);
 
         dialog.getDialogPane().setContent(grid);
 
         javafx.scene.Node saveButton = dialog.getDialogPane().lookupButton(saveButtonType);
         saveButton.setDisable(true);
 
+        // Validation listeners
         titleField.textProperty().addListener((obs, old, newVal) -> {
             saveButton.setDisable(newVal.trim().isEmpty() ||
                     departmentCombo.getValue() == null ||
+                    shiftCombo.getValue() == null ||  // NEW: Require shift
                     salaryField.getText().trim().isEmpty());
         });
 
         departmentCombo.valueProperty().addListener((obs, old, newVal) -> {
             saveButton.setDisable(titleField.getText().trim().isEmpty() ||
+                    newVal == null ||
+                    shiftCombo.getValue() == null ||  // NEW: Require shift
+                    salaryField.getText().trim().isEmpty());
+        });
+
+        // NEW: Shift validation
+        shiftCombo.valueProperty().addListener((obs, old, newVal) -> {
+            saveButton.setDisable(titleField.getText().trim().isEmpty() ||
+                    departmentCombo.getValue() == null ||
                     newVal == null ||
                     salaryField.getText().trim().isEmpty());
         });
@@ -134,6 +198,7 @@ public class PositionFormDialog {
         salaryField.textProperty().addListener((obs, old, newVal) -> {
             saveButton.setDisable(titleField.getText().trim().isEmpty() ||
                     departmentCombo.getValue() == null ||
+                    shiftCombo.getValue() == null ||  // NEW: Require shift
                     newVal.trim().isEmpty());
         });
 
@@ -142,10 +207,11 @@ public class PositionFormDialog {
                 try {
                     String title = titleField.getText().trim();
                     Department dept = departmentCombo.getValue();
-                    double salary = Double.parseDouble(salaryField.getText().trim());
+                    Shift shift = shiftCombo.getValue();  // NEW: Get selected shift
+                    double hourlyRate = Double.parseDouble(salaryField.getText().trim());
                     String description = descriptionArea.getText().trim();
 
-                    if (title.isEmpty() || dept == null || salary <= 0) {
+                    if (title.isEmpty() || dept == null || shift == null || hourlyRate <= 0) {
                         DialogHelper.showError("Please fill all required fields with valid data");
                         return null;
                     }
@@ -155,16 +221,17 @@ public class PositionFormDialog {
                         position = existingPosition;
                         position.setTitle(title);
                         position.setDepartmentId(dept.getId());
-                        position.setBaseSalary(salary);
+                        position.setShiftId(shift.getId());  // NEW: Set shift
+                        position.setHourlyRate(hourlyRate);
                         position.setDescription(description);
                     } else {
-                        position = new Position(title, dept.getId(), salary, description);
+                        position = new Position(title, dept.getId(), hourlyRate, description, shift.getId());
                     }
 
                     return position;
 
                 } catch (NumberFormatException e) {
-                    DialogHelper.showError("Please enter a valid salary amount");
+                    DialogHelper.showError("Please enter a valid hourly rate");
                     return null;
                 }
             }

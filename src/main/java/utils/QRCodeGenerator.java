@@ -6,17 +6,12 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
-/**
- * QR Code Generator utility - SIMPLIFIED VERSION
- * Generates QR code TEXT without requiring ZXing library
- * Creates a simple visual placeholder instead of actual QR image
- */
 public class QRCodeGenerator {
 
     /**
      * Generate unique QR code text for employee
      * Format: EMP-YEAR-ID-FIRSTNAME
-     * Example: EMP-2024-001-JUAN
+     *
      */
     public static String generateQRCodeText(int employeeId, String firstName) {
         int year = java.time.Year.now().getValue();

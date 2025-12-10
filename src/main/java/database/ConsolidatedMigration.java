@@ -7,11 +7,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-/**
- * CONSOLIDATED DATABASE MIGRATION
- * Run this ONCE to set up everything needed for the shift system
- * This replaces DatabaseMigration.java and DatabaseMigrationShifts.java
- */
+
 public class ConsolidatedMigration {
 
     private static final String DATABASE_URL = "jdbc:sqlite:payroll.db";

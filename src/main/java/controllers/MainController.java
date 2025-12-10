@@ -39,31 +39,31 @@ public class MainController {
 
     @FXML
     private void loadDashboard() {
-        loadView("/resources/dashboard.fxml");
+        loadView("/fxml/dashboard.fxml");
         setActiveButton(dashboardButton);
     }
 
     @FXML
     private void loadEmployees() {
-        loadView("/resources/employees.fxml");
+        loadView("/fxml/employees.fxml");
         setActiveButton(employeesButton);
     }
 
     @FXML
     private void loadAttendance() {
-        loadView("/resources/attendance.fxml");
+        loadView("/fxml/attendance.fxml");
         setActiveButton(attendanceButton);
     }
 
     @FXML
     private void loadPayroll() {
-        loadView("/resources/payroll.fxml");
+        loadView("/fxml/payroll.fxml");
         setActiveButton(payrollButton);
     }
 
     @FXML
     private void loadDepartments() {
-        loadView("/resources/departments-positions.fxml");
+        loadView("/fxml/departments-positions.fxml");
         setActiveButton(departmentsButton);
     }
 

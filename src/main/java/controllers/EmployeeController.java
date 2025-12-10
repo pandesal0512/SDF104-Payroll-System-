@@ -202,7 +202,7 @@ public class EmployeeController {
 
     private void openEmployeeForm(Employee employee) {
         try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/resources/employee-form.fxml"));
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/employee-form.fxml"));
             Parent root = loader.load();
 
             EmployeeFormController controller = loader.getController();

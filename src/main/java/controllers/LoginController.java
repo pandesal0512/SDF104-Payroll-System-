@@ -77,7 +77,7 @@ public class LoginController {
     private void openMainWindow(User user) {
         try {
             // Load main window FXML
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/resources/main.fxml"));
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/main.fxml"));
             Parent root = loader.load();
 
             // Get the controller and set the logged-in user

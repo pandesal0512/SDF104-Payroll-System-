@@ -9,6 +9,7 @@
 <?import javafx.scene.control.TableColumn?>
 <?import javafx.scene.control.TableView?>
 <?import javafx.scene.control.TextField?>
+<?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.ColumnConstraints?>
 <?import javafx.scene.layout.GridPane?>
 <?import javafx.scene.layout.HBox?>
@@ -36,7 +37,7 @@
 
                 <!-- Method 1: QR Code Entry -->
                 <VBox spacing="8.0">
-                    <Label style="-fx-font-weight: bold; -fx-font-size: 14px;" text="METHOD 1: Enter Employee QR Code" />
+                    <Label style="-fx-font-weight: bold; -fx-font-size: 14px;" text="Enter Employee QR Code" />
                     <TextField fx:id="qrCodeField" promptText="Enter QR code or Employee ID (e.g., EMP-2024-001-JUAN)" style="-fx-font-size: 14px; -fx-padding: 10;" />
                     <Button onAction="#handleFindByQR" style="-fx-background-color: #2196F3; -fx-text-fill: white; -fx-padding: 8 20;" text="🔍 Find Employee" />
                 </VBox>
@@ -46,61 +47,70 @@
                 <Label alignment="CENTER" maxWidth="Infinity" style="-fx-font-weight: bold;" text="OR" />
                 <Separator />
 
-                <!-- Method 2: Search by Name -->
+                <!-- Method 2: Search by Name - AUTO SEARCH -->
                 <VBox spacing="8.0">
-                    <Label style="-fx-font-weight: bold; -fx-font-size: 14px;" text="METHOD 2: Search by Name" />
-                    <TextField fx:id="searchNameField" promptText="Type employee name..." style="-fx-font-size: 14px; -fx-padding: 10;" />
+                    <Label style="-fx-font-weight: bold; -fx-font-size: 14px;" text="Search by Name (Auto-Search)" />
+                    <TextField fx:id="searchNameField" promptText="Type employee name... (Results appear automatically)" style="-fx-font-size: 14px; -fx-padding: 10;" />
 
-                    <Label style="-fx-font-size: 12px; -fx-text-fill: #666;" text="Search Results (Double-click to select):" />
+                    <Label style="-fx-font-size: 12px; -fx-text-fill: #666;" text="Search Results (Click to select):" />
                     <ListView fx:id="searchResultsList" maxHeight="150.0" minHeight="150.0" prefHeight="150.0" style="-fx-font-size: 13px;" />
                 </VBox>
             </VBox>
 
-            <!-- Selected Employee Section -->
+            <!-- Selected Employee Section with Profile Picture -->
             <VBox spacing="10.0" style="-fx-border-color: #4CAF50; -fx-border-width: 2; -fx-border-radius: 5; -fx-padding: 15; -fx-background-color: #f1f8f4;">
                 <Label style="-fx-font-weight: bold; -fx-font-size: 16px;" text="Selected Employee Information" />
 
-                <GridPane hgap="15.0" vgap="8.0">
-                    <columnConstraints>
-                        <ColumnConstraints percentWidth="25" />
-                        <ColumnConstraints percentWidth="75" />
-                    </columnConstraints>
+                <!-- HBox containing employee info (left) and profile picture (right) -->
+                <HBox spacing="20.0">
+                    <!-- Left side: Employee Details -->
+                    <GridPane hgap="15.0" vgap="8.0" HBox.hgrow="ALWAYS">
+                        <columnConstraints>
+                            <ColumnConstraints percentWidth="25" />
+                            <ColumnConstraints percentWidth="75" />
+                        </columnConstraints>
 
-                    <Label style="-fx-font-weight: bold;" text="Name:" GridPane.rowIndex="0" />
-                    <Label fx:id="empNameLabel" style="-fx-font-size: 14px;" text="---" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+                        <Label style="-fx-font-weight: bold;" text="Name:" GridPane.rowIndex="0" />
+                        <Label fx:id="empNameLabel" style="-fx-font-size: 14px;" text="---" GridPane.columnIndex="1" GridPane.rowIndex="0" />
 
-                    <Label style="-fx-font-weight: bold;" text="QR Code:" GridPane.rowIndex="1" />
-                    <Label fx:id="empQrLabel" style="-fx-font-size: 14px;" text="---" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+                        <Label style="-fx-font-weight: bold;" text="QR Code:" GridPane.rowIndex="1" />
+                        <Label fx:id="empQrLabel" style="-fx-font-size: 14px;" text="---" GridPane.columnIndex="1" GridPane.rowIndex="1" />
 
-                    <Label style="-fx-font-weight: bold;" text="Position:" GridPane.rowIndex="2" />
-                    <Label fx:id="empPositionLabel" style="-fx-font-size: 14px;" text="---" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+                        <Label style="-fx-font-weight: bold;" text="Position:" GridPane.rowIndex="2" />
+                        <Label fx:id="empPositionLabel" style="-fx-font-size: 14px;" text="---" GridPane.columnIndex="1" GridPane.rowIndex="2" />
 
-                    <Label style="-fx-font-weight: bold;" text="Department:" GridPane.rowIndex="3" />
-                    <Label fx:id="empDepartmentLabel" style="-fx-font-size: 14px;" text="---" GridPane.columnIndex="1" GridPane.rowIndex="3" />
+                        <Label style="-fx-font-weight: bold;" text="Department:" GridPane.rowIndex="3" />
+                        <Label fx:id="empDepartmentLabel" style="-fx-font-size: 14px;" text="---" GridPane.columnIndex="1" GridPane.rowIndex="3" />
 
-                    <Label style="-fx-font-weight: bold;" text="Current Time:" GridPane.rowIndex="4" />
-                    <Label fx:id="currentTimeLabel" style="-fx-font-size: 14px; -fx-font-weight: bold;" text="--:--:--" GridPane.columnIndex="1" GridPane.rowIndex="4" />
+                        <Label style="-fx-font-weight: bold;" text="Current Time:" GridPane.rowIndex="4" />
+                        <Label fx:id="currentTimeLabel" style="-fx-font-size: 14px; -fx-font-weight: bold;" text="--:--:--" GridPane.columnIndex="1" GridPane.rowIndex="4" />
 
-                    <Label style="-fx-font-weight: bold;" text="Status:" GridPane.rowIndex="5" />
-                    <Label fx:id="attendanceStatusLabel" style="-fx-font-size: 14px; -fx-font-weight: bold;" text="---" GridPane.columnIndex="1" GridPane.rowIndex="5" />
-                    <rowConstraints>
-                        <RowConstraints />
-                        <RowConstraints />
-                        <RowConstraints />
-                        <RowConstraints />
-                        <RowConstraints />
-                        <RowConstraints />
-                    </rowConstraints>
-                </GridPane>
+                        <Label style="-fx-font-weight: bold;" text="Status:" GridPane.rowIndex="5" />
+                        <Label fx:id="attendanceStatusLabel" style="-fx-font-size: 14px; -fx-font-weight: bold;" text="---" GridPane.columnIndex="1" GridPane.rowIndex="5" />
+                        <rowConstraints>
+                            <RowConstraints />
+                            <RowConstraints />
+                            <RowConstraints />
+                            <RowConstraints />
+                            <RowConstraints />
+                            <RowConstraints />
+                        </rowConstraints>
+                    </GridPane>
 
-                <!-- Action Buttons -->
-                <HBox alignment="CENTER" spacing="15.0">
+                    <!-- Right side: Profile Picture -->
+                    <VBox alignment="CENTER" spacing="5.0" style="-fx-padding: 10;">
+                        <ImageView fx:id="empProfileImageView" fitHeight="120.0" fitWidth="120.0" preserveRatio="true" style="-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 10, 0, 0, 0);" />
+                        <Label style="-fx-font-size: 11px; -fx-text-fill: gray;" text="Employee Photo" />
+                    </VBox>
+                </HBox>
+
+                <!-- MERGED Action Button - Single button for both Time In and Time Out -->
+                <VBox alignment="CENTER" spacing="10.0">
                     <VBox.margin>
                         <Insets top="10.0" />
                     </VBox.margin>
-                    <Button fx:id="timeInButton" disable="true" onAction="#handleTimeIn" style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-size: 16px; -fx-padding: 12 30;" text="⏰ RECORD TIME IN" />
-                    <Button fx:id="timeOutButton" disable="true" onAction="#handleTimeOut" style="-fx-background-color: #FF9800; -fx-text-fill: white; -fx-font-size: 16px; -fx-padding: 12 30;" text="🚪 RECORD TIME OUT" />
-                </HBox>
+                    <Button fx:id="recordAttendanceButton" disable="true" onAction="#handleRecordAttendance" style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-size: 16px; -fx-padding: 12 30;" text="⏰ RECORD TIME IN" />
+                </VBox>
 
                 <Button onAction="#handleClear" style="-fx-background-color: #9E9E9E; -fx-text-fill: white; -fx-padding: 8 20;" text="🔄 Clear Selection" />
             </VBox>
@@ -130,6 +140,7 @@
                     </VBox.margin>
                     <Button onAction="#handleViewReport" style="-fx-background-color: #2196F3; -fx-text-fill: white; -fx-padding: 10 20;" text="📊 View Detailed Report" />
                     <Button onAction="#handleExport" style="-fx-background-color: #607D8B; -fx-text-fill: white; -fx-padding: 10 20;" text="🖨️ Save &amp; Print Log" />
+                    <Button onAction="#handleShowShiftInfo" style="-fx-background-color: #673AB7; -fx-text-fill: white; -fx-padding: 10 20;" text="ℹ️ Shift Info" />
                 </HBox>
             </VBox>
         </children>

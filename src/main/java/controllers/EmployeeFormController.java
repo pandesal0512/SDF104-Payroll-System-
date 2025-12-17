@@ -1,9 +1,9 @@
-
 package controllers;
 
 import dao.EmployeeDAO;
 import dao.DepartmentDAO;
 import dao.PositionDAO;
+import dao.ShiftDAO;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
@@ -13,40 +13,148 @@ import javafx.stage.Stage;
 import models.Employee;
 import models.Department;
 import models.Position;
+import models.Shift;
 import utils.QRCodeGenerator;
+import utils.ImageHelper;
 
 import java.io.ByteArrayInputStream;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.List;
 
+/**
+ * Controller for Employee Form - WITH SHIFT SELECTION
+ */
 public class EmployeeFormController {
 
     @FXML private Label formTitleLabel;
     @FXML private TextField nameField;
     @FXML private TextField ageField;
     @FXML private TextField contactField;
+
+    @FXML private TextField emergencyContactNameField;
+    @FXML private TextField emergencyContactPhoneField;
+
     @FXML private ComboBox<Department> departmentCombo;
     @FXML private ComboBox<Position> positionCombo;
+    @FXML private ComboBox<Shift> shiftCombo;  // NEW - Shift selection
     @FXML private DatePicker hireDatePicker;
     @FXML private ComboBox<String> statusCombo;
+
+    @FXML private ImageView profilePictureView;
+    @FXML private Label photoStatusLabel;
+    @FXML private Button uploadPhotoButton;
+    @FXML private Button removePhotoButton;
+
     @FXML private ImageView qrImageView;
     @FXML private Label qrCodeLabel;
 
     private EmployeeDAO employeeDAO = new EmployeeDAO();
     private DepartmentDAO departmentDAO = new DepartmentDAO();
     private PositionDAO positionDAO = new PositionDAO();
+    private ShiftDAO shiftDAO = new ShiftDAO();  // NEW
 
-    private Employee currentEmployee; // For edit mode
+    private Employee currentEmployee;
     private String generatedQRCode;
-    private Runnable onSaveCallback; // Callback to refresh parent view
+    private String currentProfilePicturePath;
+    private Runnable onSaveCallback;
 
     @FXML
     public void initialize() {
         loadDepartments();
+        loadShifts();  // NEW - Load available shifts
         setupStatusCombo();
         setupDepartmentListener();
         hireDatePicker.setValue(LocalDate.now());
+
+        initializeProfilePicture();
+    }
+
+    private void initializeProfilePicture() {
+        Image defaultImage = ImageHelper.getDefaultProfileImage();
+        profilePictureView.setImage(defaultImage);
+        ImageHelper.makeCircular(profilePictureView);
+        photoStatusLabel.setText("No photo selected");
+        removePhotoButton.setDisable(true);
+    }
+
+    /**
+     * NEW - Load available shifts
+     */
+    private void loadShifts() {
+        try {
+            List<Shift> shifts = shiftDAO.getActiveShifts();
+            shiftCombo.setItems(FXCollections.observableArrayList(shifts));
+
+            shiftCombo.setCellFactory(param -> new ListCell<Shift>() {
+                @Override
+                protected void updateItem(Shift item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || item == null) {
+                        setText("");
+                    } else {
+                        setText(item.getShiftEmoji() + " " + item.getName() +
+                                " (" + item.getShiftTimeRange() + ")");
+                    }
+                }
+            });
+
+            shiftCombo.setButtonCell(new ListCell<Shift>() {
+                @Override
+                protected void updateItem(Shift item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || item == null) {
+                        setText("Select Shift (Optional)");
+                    } else {
+                        setText(item.getShiftEmoji() + " " + item.getName() +
+                                " (" + item.getShiftTimeRange() + ")");
+                    }
+                }
+            });
+
+            // Set prompt text
+            shiftCombo.setPromptText("Select Shift (Optional)");
+
+        } catch (SQLException e) {
+            showError("Failed to load shifts: " + e.getMessage());
+        }
+    }
+
+    @FXML
+    private void handleUploadPhoto() {
+        Stage stage = (Stage) uploadPhotoButton.getScene().getWindow();
+        String qrForFilename = generatedQRCode != null ? generatedQRCode : "TEMP_" + System.currentTimeMillis();
+
+        String picturePath = ImageHelper.selectAndSaveProfilePicture(stage, qrForFilename);
+
+        if (picturePath != null) {
+            currentProfilePicturePath = picturePath;
+            Image image = ImageHelper.loadProfilePicture(picturePath);
+            profilePictureView.setImage(image);
+            ImageHelper.makeCircular(profilePictureView);
+
+            photoStatusLabel.setText("✓ Photo selected");
+            photoStatusLabel.setStyle("-fx-text-fill: #4CAF50;");
+            removePhotoButton.setDisable(false);
+
+            System.out.println("✓ Profile picture selected: " + picturePath);
+        }
+    }
+
+    @FXML
+    private void handleRemovePhoto() {
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Remove Photo");
+        confirm.setHeaderText("Remove Profile Picture?");
+        confirm.setContentText("This will remove the current profile picture.");
+
+        confirm.showAndWait().ifPresent(response -> {
+            if (response == ButtonType.OK) {
+                currentProfilePicturePath = null;
+                initializeProfilePicture();
+                showInfo("Profile picture removed");
+            }
+        });
     }
 
     private void loadDepartments() {
@@ -54,7 +162,6 @@ public class EmployeeFormController {
             List<Department> departments = departmentDAO.getAllDepartments();
             departmentCombo.setItems(FXCollections.observableArrayList(departments));
 
-            // Custom display for combo box
             departmentCombo.setCellFactory(param -> new ListCell<Department>() {
                 @Override
                 protected void updateItem(Department item, boolean empty) {
@@ -115,9 +222,6 @@ public class EmployeeFormController {
         statusCombo.setValue("active");
     }
 
-    /**
-     * Set employee for edit mode
-     */
     public void setEmployee(Employee employee) {
         this.currentEmployee = employee;
         formTitleLabel.setText("✏️ EDIT EMPLOYEE");
@@ -131,24 +235,41 @@ public class EmployeeFormController {
             contactField.setText(employee.getContactInfo());
             statusCombo.setValue(employee.getStatus());
 
-            // Set hire date
+            emergencyContactNameField.setText(employee.getEmergencyContactName());
+            emergencyContactPhoneField.setText(employee.getEmergencyContactPhone());
+
+            if (employee.hasProfilePicture()) {
+                currentProfilePicturePath = employee.getProfilePicturePath();
+                Image image = ImageHelper.loadProfilePicture(currentProfilePicturePath);
+                profilePictureView.setImage(image);
+                ImageHelper.makeCircular(profilePictureView);
+                photoStatusLabel.setText("✓ Photo loaded");
+                photoStatusLabel.setStyle("-fx-text-fill: #4CAF50;");
+                removePhotoButton.setDisable(false);
+            }
+
             if (employee.getHireDate() != null && !employee.getHireDate().isEmpty()) {
                 hireDatePicker.setValue(LocalDate.parse(employee.getHireDate()));
             }
 
-            // Load department
             Department dept = departmentDAO.getDepartmentById(employee.getDepartmentId());
             if (dept != null) {
                 departmentCombo.setValue(dept);
             }
 
-            // Load position
             Position pos = positionDAO.getPositionById(employee.getPositionId());
             if (pos != null) {
                 positionCombo.setValue(pos);
             }
 
-            // Show existing QR code
+            // NEW - Load employee's shift
+            if (employee.hasShift()) {
+                Shift shift = shiftDAO.getShiftById(employee.getShiftId());
+                if (shift != null) {
+                    shiftCombo.setValue(shift);
+                }
+            }
+
             generatedQRCode = employee.getQrCode();
             qrCodeLabel.setText(generatedQRCode);
             generateQRImage(generatedQRCode);
@@ -173,20 +294,35 @@ public class EmployeeFormController {
             String hireDate = hireDatePicker.getValue().toString();
             String status = statusCombo.getValue();
 
+            String emergencyName = emergencyContactNameField.getText().trim();
+            String emergencyPhone = emergencyContactPhoneField.getText().trim();
+
+            // NEW - Get selected shift (can be null)
+            Integer shiftId = null;
+            if (shiftCombo.getValue() != null) {
+                shiftId = shiftCombo.getValue().getId();
+            }
+
             if (currentEmployee == null) {
-                // ADD MODE - Generate new QR code
+                // ADD MODE
                 if (generatedQRCode == null) {
-                    // Auto-generate QR code based on name
                     int nextId = getNextEmployeeId();
                     generatedQRCode = QRCodeGenerator.generateQRCodeText(nextId, name.split(" ")[0]);
                 }
 
-                Employee newEmployee = new Employee(name, age, positionId, departmentId,
-                        hireDate, contact, generatedQRCode);
+                Employee newEmployee = new Employee(
+                        name, age, positionId, departmentId,
+                        hireDate, contact, generatedQRCode,
+                        emergencyName, emergencyPhone, currentProfilePicturePath,
+                        shiftId  // NEW - Pass shift ID
+                );
                 newEmployee.setStatus(status);
                 employeeDAO.addEmployee(newEmployee);
 
-                showInfo("Employee added successfully!");
+                String shiftInfo = shiftId != null ?
+                        "\nShift: " + shiftCombo.getValue().getName() :
+                        "\nShift: Not assigned";
+                showInfo("✓ Employee added successfully!" + shiftInfo);
 
             } else {
                 // EDIT MODE
@@ -198,18 +334,23 @@ public class EmployeeFormController {
                 currentEmployee.setHireDate(hireDate);
                 currentEmployee.setStatus(status);
                 currentEmployee.setQrCode(generatedQRCode);
+                currentEmployee.setEmergencyContactName(emergencyName);
+                currentEmployee.setEmergencyContactPhone(emergencyPhone);
+                currentEmployee.setProfilePicturePath(currentProfilePicturePath);
+                currentEmployee.setShiftId(shiftId);  // NEW - Update shift
 
                 employeeDAO.updateEmployee(currentEmployee);
 
-                showInfo("Employee updated successfully!");
+                String shiftInfo = shiftId != null ?
+                        "\nShift: " + shiftCombo.getValue().getName() :
+                        "\nShift: Not assigned";
+                showInfo("✓ Employee updated successfully!" + shiftInfo);
             }
 
-            // Trigger callback to refresh parent view
             if (onSaveCallback != null) {
                 onSaveCallback.run();
             }
 
-            // Close form
             closeForm();
 
         } catch (SQLException e) {
@@ -234,7 +375,7 @@ public class EmployeeFormController {
             qrCodeLabel.setText(generatedQRCode);
             generateQRImage(generatedQRCode);
 
-            showInfo("QR Code regenerated: " + generatedQRCode);
+            showInfo("✓ QR Code regenerated: " + generatedQRCode);
         } catch (Exception e) {
             showError("Failed to generate QR code: " + e.getMessage());
         }
@@ -247,8 +388,7 @@ public class EmployeeFormController {
             return;
         }
 
-        showInfo("QR Code download feature coming soon!");
-        // TODO: Implement file chooser and save QR image
+        showInfo("QR Code: " + generatedQRCode + "\n\nCopy this code for attendance scanning.");
     }
 
     @FXML
@@ -289,7 +429,11 @@ public class EmployeeFormController {
         }
 
         try {
-            Integer.parseInt(ageField.getText().trim());
+            int age = Integer.parseInt(ageField.getText().trim());
+            if (age < 18 || age > 70) {
+                showWarning("Age must be between 18 and 70");
+                return false;
+            }
         } catch (NumberFormatException e) {
             showWarning("Please enter a valid age");
             return false;
@@ -312,7 +456,6 @@ public class EmployeeFormController {
         this.onSaveCallback = callback;
     }
 
-    // Alert methods
     private void showError(String message) {
         Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.setTitle("Error");

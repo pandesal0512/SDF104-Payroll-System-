@@ -6,7 +6,9 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.control.Button;
 import javafx.scene.layout.StackPane;
 import javafx.scene.Node;
+import javafx.stage.Stage;
 import models.User;
+import utils.ResponsiveUI;
 
 import java.io.IOException;
 
@@ -27,14 +29,20 @@ public class MainController {
     @FXML
     public void initialize() {
         loadDashboard();
+
+        // Apply responsive font sizing to stage when available
+        Platform.runLater(() -> {
+            Stage stage = (Stage) contentArea.getScene().getWindow();
+            if (stage != null) {
+                ResponsiveUI.makeResponsive(stage);
+                System.out.println("✓ Responsive UI applied to main window");
+            }
+        });
     }
 
     public void setCurrentUser(User user) {
         this.currentUser = user;
         System.out.println("Logged in as: " + user.getFullName() + " (" + user.getRole() + ")");
-
-        // Note: Window is already maximized in LoginController
-        // No need to maximize here
     }
 
     @FXML

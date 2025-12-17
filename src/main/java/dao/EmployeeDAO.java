@@ -7,14 +7,19 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * EmployeeDAO - Updated with employee-level shift assignment
+ */
 public class EmployeeDAO {
 
     /**
-     * Add a new employee to the database
+     * Add a new employee (with shift)
      */
     public void addEmployee(Employee employee) throws SQLException {
-        String sql = "INSERT INTO employees (name, age, position_id, department_id, hire_date, contact_info, qr_code, status) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO employees " +
+                "(name, age, position_id, department_id, hire_date, contact_info, qr_code, status, " +
+                "emergency_contact_name, emergency_contact_phone, profile_picture_path, shift_id) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -27,9 +32,22 @@ public class EmployeeDAO {
             stmt.setString(6, employee.getContactInfo());
             stmt.setString(7, employee.getQrCode());
             stmt.setString(8, employee.getStatus());
+            stmt.setString(9, employee.getEmergencyContactName());
+            stmt.setString(10, employee.getEmergencyContactPhone());
+            stmt.setString(11, employee.getProfilePicturePath());
+
+            // Handle shift_id (can be null)
+            if (employee.getShiftId() != null) {
+                stmt.setInt(12, employee.getShiftId());
+            } else {
+                stmt.setNull(12, Types.INTEGER);
+            }
+
             stmt.executeUpdate();
 
-            System.out.println("Employee added: " + employee.getName() + " (QR: " + employee.getQrCode() + ")");
+            System.out.println("✓ Employee added: " + employee.getName() +
+                    " (QR: " + employee.getQrCode() +
+                    ", Shift: " + (employee.hasShift() ? "Assigned" : "Not assigned") + ")");
         }
     }
 
@@ -46,20 +64,10 @@ public class EmployeeDAO {
             ResultSet rs = stmt.executeQuery();
 
             if (rs.next()) {
-                return new Employee(
-                        rs.getInt("id"),
-                        rs.getString("name"),
-                        rs.getInt("age"),
-                        rs.getInt("position_id"),
-                        rs.getInt("department_id"),
-                        rs.getString("hire_date"),
-                        rs.getString("contact_info"),
-                        rs.getString("qr_code"),
-                        rs.getString("status")
-                );
+                return extractEmployee(rs);
             }
         }
-        return null;  // Not found
+        return null;
     }
 
     /**
@@ -75,20 +83,10 @@ public class EmployeeDAO {
             ResultSet rs = stmt.executeQuery();
 
             if (rs.next()) {
-                return new Employee(
-                        rs.getInt("id"),
-                        rs.getString("name"),
-                        rs.getInt("age"),
-                        rs.getInt("position_id"),
-                        rs.getInt("department_id"),
-                        rs.getString("hire_date"),
-                        rs.getString("contact_info"),
-                        rs.getString("qr_code"),
-                        rs.getString("status")
-                );
+                return extractEmployee(rs);
             }
         }
-        return null;  // Not found
+        return null;
     }
 
     /**
@@ -103,18 +101,7 @@ public class EmployeeDAO {
              ResultSet rs = stmt.executeQuery(sql)) {
 
             while (rs.next()) {
-                Employee emp = new Employee(
-                        rs.getInt("id"),
-                        rs.getString("name"),
-                        rs.getInt("age"),
-                        rs.getInt("position_id"),
-                        rs.getInt("department_id"),
-                        rs.getString("hire_date"),
-                        rs.getString("contact_info"),
-                        rs.getString("qr_code"),
-                        rs.getString("status")
-                );
-                employees.add(emp);
+                employees.add(extractEmployee(rs));
             }
         }
         return employees;
@@ -134,18 +121,7 @@ public class EmployeeDAO {
             ResultSet rs = stmt.executeQuery();
 
             while (rs.next()) {
-                Employee emp = new Employee(
-                        rs.getInt("id"),
-                        rs.getString("name"),
-                        rs.getInt("age"),
-                        rs.getInt("position_id"),
-                        rs.getInt("department_id"),
-                        rs.getString("hire_date"),
-                        rs.getString("contact_info"),
-                        rs.getString("qr_code"),
-                        rs.getString("status")
-                );
-                employees.add(emp);
+                employees.add(extractEmployee(rs));
             }
         }
         return employees;
@@ -163,29 +139,22 @@ public class EmployeeDAO {
              ResultSet rs = stmt.executeQuery(sql)) {
 
             while (rs.next()) {
-                Employee emp = new Employee(
-                        rs.getInt("id"),
-                        rs.getString("name"),
-                        rs.getInt("age"),
-                        rs.getInt("position_id"),
-                        rs.getInt("department_id"),
-                        rs.getString("hire_date"),
-                        rs.getString("contact_info"),
-                        rs.getString("qr_code"),
-                        rs.getString("status")
-                );
-                employees.add(emp);
+                employees.add(extractEmployee(rs));
             }
         }
         return employees;
     }
 
     /**
-     * Update an existing employee
+     * Update an existing employee (with shift)
      */
     public void updateEmployee(Employee employee) throws SQLException {
-        String sql = "UPDATE employees SET name = ?, age = ?, position_id = ?, department_id = ?, " +
-                "hire_date = ?, contact_info = ?, qr_code = ?, status = ? WHERE id = ?";
+        String sql = "UPDATE employees SET " +
+                "name = ?, age = ?, position_id = ?, department_id = ?, " +
+                "hire_date = ?, contact_info = ?, qr_code = ?, status = ?, " +
+                "emergency_contact_name = ?, emergency_contact_phone = ?, " +
+                "profile_picture_path = ?, shift_id = ? " +
+                "WHERE id = ?";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -198,10 +167,22 @@ public class EmployeeDAO {
             stmt.setString(6, employee.getContactInfo());
             stmt.setString(7, employee.getQrCode());
             stmt.setString(8, employee.getStatus());
-            stmt.setInt(9, employee.getId());
+            stmt.setString(9, employee.getEmergencyContactName());
+            stmt.setString(10, employee.getEmergencyContactPhone());
+            stmt.setString(11, employee.getProfilePicturePath());
+
+            // Handle shift_id (can be null)
+            if (employee.getShiftId() != null) {
+                stmt.setInt(12, employee.getShiftId());
+            } else {
+                stmt.setNull(12, Types.INTEGER);
+            }
+
+            stmt.setInt(13, employee.getId());
+
             stmt.executeUpdate();
 
-            System.out.println("Employee updated: " + employee.getName());
+            System.out.println("✓ Employee updated: " + employee.getName());
         }
     }
 
@@ -217,7 +198,7 @@ public class EmployeeDAO {
             stmt.setInt(1, id);
             stmt.executeUpdate();
 
-            System.out.println("Employee deleted (ID: " + id + ")");
+            System.out.println("✓ Employee deleted (ID: " + id + ")");
         }
     }
 
@@ -226,7 +207,7 @@ public class EmployeeDAO {
      */
     public List<Employee> searchEmployeesByName(String searchTerm) throws SQLException {
         List<Employee> employees = new ArrayList<>();
-        String sql = "SELECT * FROM employees WHERE name LIKE ?";
+        String sql = "SELECT * FROM employees WHERE name LIKE ? ORDER BY name";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -235,20 +216,91 @@ public class EmployeeDAO {
             ResultSet rs = stmt.executeQuery();
 
             while (rs.next()) {
-                Employee emp = new Employee(
-                        rs.getInt("id"),
-                        rs.getString("name"),
-                        rs.getInt("age"),
-                        rs.getInt("position_id"),
-                        rs.getInt("department_id"),
-                        rs.getString("hire_date"),
-                        rs.getString("contact_info"),
-                        rs.getString("qr_code"),
-                        rs.getString("status")
-                );
-                employees.add(emp);
+                employees.add(extractEmployee(rs));
             }
         }
         return employees;
+    }
+
+    /**
+     * Update employee shift
+     */
+    public void updateEmployeeShift(int employeeId, Integer shiftId) throws SQLException {
+        String sql = "UPDATE employees SET shift_id = ? WHERE id = ?";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            if (shiftId != null) {
+                stmt.setInt(1, shiftId);
+            } else {
+                stmt.setNull(1, Types.INTEGER);
+            }
+            stmt.setInt(2, employeeId);
+            stmt.executeUpdate();
+
+            System.out.println("✓ Shift updated for employee #" + employeeId);
+        }
+    }
+
+    /**
+     * Get employees by shift
+     */
+    public List<Employee> getEmployeesByShift(int shiftId) throws SQLException {
+        List<Employee> employees = new ArrayList<>();
+        String sql = "SELECT * FROM employees WHERE shift_id = ? AND status = 'active'";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, shiftId);
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                employees.add(extractEmployee(rs));
+            }
+        }
+        return employees;
+    }
+
+    /**
+     * Extract Employee from ResultSet (handles all fields safely)
+     */
+    private Employee extractEmployee(ResultSet rs) throws SQLException {
+        String emergencyName = null;
+        String emergencyPhone = null;
+        String picturePath = null;
+        Integer shiftId = null;
+
+        try {
+            emergencyName = rs.getString("emergency_contact_name");
+            emergencyPhone = rs.getString("emergency_contact_phone");
+            picturePath = rs.getString("profile_picture_path");
+
+            // Handle shift_id (can be null)
+            int tempShiftId = rs.getInt("shift_id");
+            if (!rs.wasNull()) {
+                shiftId = tempShiftId;
+            }
+        } catch (SQLException e) {
+            // Columns don't exist yet - backward compatibility
+            System.out.println("⚠ Using old employee schema (run migration)");
+        }
+
+        return new Employee(
+                rs.getInt("id"),
+                rs.getString("name"),
+                rs.getInt("age"),
+                rs.getInt("position_id"),
+                rs.getInt("department_id"),
+                rs.getString("hire_date"),
+                rs.getString("contact_info"),
+                rs.getString("qr_code"),
+                rs.getString("status"),
+                emergencyName,
+                emergencyPhone,
+                picturePath,
+                shiftId
+        );
     }
 }

@@ -144,7 +144,7 @@
         </Label>
 
 
-        <TableView fx:id="recentActivityTable" maxWidth="1.7976931348623157E308" prefHeight="441.0" prefWidth="935.0" style="-fx-fixed-cell-size: 35; -fx-font-size: 15;">
+        <TableView fx:id="recentActivityTable" maxWidth="1.7976931348623157E308" prefHeight="441.0" prefWidth="935.0" style="-fx-fixed-cell-size: 35; -fx-font-size: 18;">
             <columns>
                 <TableColumn fx:id="timeColumn" prefWidth="271.0" text="Time" />
                 <TableColumn fx:id="employeeColumn" prefWidth="848.0" text="Employee" />

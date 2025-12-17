@@ -8,72 +8,81 @@
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
-<?import javafx.scene.text.Font?>
 
-<BorderPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="600.0" minWidth="800.0" prefHeight="1080.0" prefWidth="1920.0" style="-fx-background-color: #ffffff;" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controllers.MainController">
+<BorderPane xmlns="http://javafx.com/javafx/24.0.1"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="controllers.MainController"
+            style="-fx-background-color: white;">
+
+    <!-- ================= TOP BAR ================= -->
     <top>
-        <HBox alignment="CENTER_LEFT" prefHeight="82.0" prefWidth="1920.0" style="-fx-border-color: #a7adbc; -fx-border-width: 2.3;" BorderPane.alignment="CENTER">
+        <HBox alignment="CENTER_LEFT"
+              style="-fx-border-color: #a7adbc; -fx-border-width: 0 0 2 0;">
             <children>
-                <Label text="HR Payroll &amp; Attendance System">
-                    <font>
-                        <Font name="Corbel" size="41.0" />
-                    </font>
+                <Label text="HR Payroll &amp; Attendance System"
+                       style="-fx-font-size: 32px; -fx-font-weight: bold;">
                     <padding>
-                        <Insets bottom="15.0" left="20.0" right="20.0" top="15.0" />
+                        <Insets top="15" bottom="15" left="25"/>
                     </padding>
                 </Label>
             </children>
         </HBox>
     </top>
 
+    <!-- ================= SIDEBAR ================= -->
     <left>
-        <VBox alignment="CENTER" prefHeight="984.0" prefWidth="215.0" spacing="20.0" style="-fx-border-color: #a7adbc; -fx-border-width: 2.3;" BorderPane.alignment="TOP_CENTER">
+        <VBox spacing="15"
+              prefWidth="240"
+              style="-fx-border-color: #a7adbc; -fx-border-width: 0 2 0 0;">
+
             <padding>
-                <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
+                <Insets top="20" left="15" right="15"/>
             </padding>
-            <children>
-                <Button fx:id="dashboardButton" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#loadDashboard" prefHeight="50.0" style="-fx-background-color: #ffffff;" text="📊 Dashboard">
-                    <font>
-                        <Font size="18.0" />
-                    </font>
-                </Button>
 
-                <Button fx:id="employeesButton" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#loadEmployees" prefHeight="50.0" style="-fx-background-color: #ffffff;" text="👥 Employees">
-                    <font>
-                        <Font size="18.0" />
-                    </font>
-                </Button>
+            <Button fx:id="dashboardButton"
+                    maxWidth="Infinity"
+                    onAction="#loadDashboard"
+                    style="-fx-background-color: white; -fx-font-size: 16px;"
+                    text="📊 Dashboard"/>
 
-                <Button fx:id="attendanceButton" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#loadAttendance" prefHeight="50.0" style="-fx-background-color: #ffffff;" text="📋 Attendance">
-                    <font>
-                        <Font size="18.0" />
-                    </font>
-                </Button>
+            <Button fx:id="employeesButton"
+                    maxWidth="Infinity"
+                    onAction="#loadEmployees"
+                    style="-fx-background-color: white; -fx-font-size: 16px;"
+                    text="👥 Employees"/>
 
-                <Button fx:id="payrollButton" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#loadPayroll" prefHeight="50.0" style="-fx-background-color: #ffffff;" text="💰 Payroll">
-                    <font>
-                        <Font size="18.0" />
-                    </font>
-                </Button>
+            <Button fx:id="attendanceButton"
+                    maxWidth="Infinity"
+                    onAction="#loadAttendance"
+                    style="-fx-background-color: white; -fx-font-size: 16px;"
+                    text="📋 Attendance"/>
 
-                <Button fx:id="departmentsButton" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#loadDepartments" prefHeight="50.0" style="-fx-background-color: #ffffff;" text="🏢 Depts &amp; Positions">
-                    <font>
-                        <Font size="18.0" />
-                    </font>
-                </Button>
+            <Button fx:id="payrollButton"
+                    maxWidth="Infinity"
+                    onAction="#loadPayroll"
+                    style="-fx-background-color: white; -fx-font-size: 16px;"
+                    text="💰 Payroll"/>
 
-                <Region prefHeight="200.0" prefWidth="200.0" style="-fx-background-color: #ffffff;" VBox.vgrow="ALWAYS" />
+            <Button fx:id="departmentsButton"
+                    maxWidth="Infinity"
+                    onAction="#loadDepartments"
+                    style="-fx-background-color: white; -fx-font-size: 16px;"
+                    text="🏢 Depts &amp; Positions"/>
 
-                <Button alignment="CENTER" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#handleExit" prefHeight="50.0" style="-fx-background-color: #f44336; -fx-text-fill: white;" text="🚪 Exit">
-                    <font>
-                        <Font size="18.0" />
-                    </font>
-                </Button>
-            </children>
+            <!-- PUSH EXIT BUTTON DOWN -->
+            <Region VBox.vgrow="ALWAYS"/>
+
+            <Button onAction="#handleExit"
+                    maxWidth="Infinity"
+                    style="-fx-background-color: #f44336; -fx-text-fill: white; -fx-font-size: 16px;"
+                    text="🚪 Exit"/>
         </VBox>
     </left>
 
+    <!-- ================= CONTENT ================= -->
     <center>
-        <StackPane fx:id="contentArea" prefHeight="150.0" prefWidth="200.0" style="-fx-background-color: #ffffff;" BorderPane.alignment="CENTER" />
+        <StackPane fx:id="contentArea"
+                   style="-fx-background-color: white;"/>
     </center>
+
 </BorderPane>

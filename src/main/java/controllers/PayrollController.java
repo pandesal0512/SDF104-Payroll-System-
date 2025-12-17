@@ -31,6 +31,7 @@ public class PayrollController {
     @FXML private ComboBox<Integer> yearCombo;
     @FXML private ComboBox<Department> departmentFilterCombo;
     @FXML private TextField payrollSearchField;
+    @FXML private ListView<String> searchResultsList;  // NEW - Auto search results
 
     @FXML private TableView<PayrollDisplay> payrollTable;
     @FXML private TableColumn<PayrollDisplay, String> qrCodeColumn;
@@ -38,9 +39,10 @@ public class PayrollController {
     @FXML private TableColumn<PayrollDisplay, Double> hoursColumn;
     @FXML private TableColumn<PayrollDisplay, Double> hourlyRateColumn;
     @FXML private TableColumn<PayrollDisplay, Double> baseSalaryColumn;
+    @FXML private TableColumn<PayrollDisplay, Double> govDeductionsColumn;  // NEW
     @FXML private TableColumn<PayrollDisplay, Double> adjustmentColumn;
     @FXML private TableColumn<PayrollDisplay, Double> netPayColumn;
-    @FXML private TableColumn<PayrollDisplay, String> notesColumn;
+    @FXML private TableColumn<PayrollDisplay, String> statusColumn;  // NEW - Hold status
     @FXML private TableColumn<PayrollDisplay, Void> actionsColumn;
 
     private PayrollDAO payrollDAO = new PayrollDAO();
@@ -48,10 +50,13 @@ public class PayrollController {
     private DepartmentDAO departmentDAO = new DepartmentDAO();
     private PositionDAO positionDAO = new PositionDAO();
     private AttendanceDAO attendanceDAO = new AttendanceDAO();
+    private PayrollAdjustmentDAO adjustmentDAO = new PayrollAdjustmentDAO();
+    private SalaryHoldDAO salaryHoldDAO = new SalaryHoldDAO();
 
     private ObservableList<PayrollDisplay> payrollList = FXCollections.observableArrayList();
     private int selectedMonth;
     private int selectedYear;
+    private int currentUserId = 1;  // TODO: Get from session
 
     @FXML
     public void initialize() {
@@ -59,12 +64,11 @@ public class PayrollController {
         setupYearCombo();
         setupDepartmentFilter();
         setupTableColumns();
+        setupAutoSearch();  // NEW
 
-        // Auto-load current month's payroll
         selectedMonth = DateTimeHelper.getCurrentMonth();
         selectedYear = DateTimeHelper.getCurrentYear();
 
-        // Always load from database first
         loadExistingPayroll();
     }
 
@@ -110,15 +114,120 @@ public class PayrollController {
         }
     }
 
+    /**
+     * NEW - Setup auto-search functionality
+     */
+    private void setupAutoSearch() {
+        if (payrollSearchField != null) {
+            payrollSearchField.textProperty().addListener((obs, oldVal, newVal) -> {
+                if (!newVal.trim().isEmpty()) {
+                    searchEmployeesForPayroll(newVal);
+                } else {
+                    if (searchResultsList != null) {
+                        searchResultsList.getItems().clear();
+                    }
+                    // Show all employees in table
+                    loadExistingPayroll();
+                }
+            });
+        }
+
+        if (searchResultsList != null) {
+            searchResultsList.setOnMouseClicked(event -> {
+                if (event.getClickCount() >= 1) {
+                    String selected = searchResultsList.getSelectionModel().getSelectedItem();
+                    if (selected != null && !selected.trim().isEmpty()) {
+                        handleSelectEmployeeFromSearch();
+                    }
+                }
+            });
+        }
+    }
+
+    /**
+     * NEW - Search employees for payroll
+     */
+    private void searchEmployeesForPayroll(String searchTerm) {
+        try {
+            List<Employee> employees = employeeDAO.searchEmployeesByName(searchTerm);
+            ObservableList<String> results = FXCollections.observableArrayList();
+
+            for (Employee emp : employees) {
+                results.add(emp.getName() + " (" + emp.getQrCode() + ")");
+            }
+
+            if (searchResultsList != null) {
+                searchResultsList.setItems(results);
+            }
+
+            // Also filter table
+            filterPayrollTable(searchTerm);
+
+        } catch (SQLException e) {
+            showError("Search failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * NEW - Filter payroll table by search term
+     */
+    private void filterPayrollTable(String searchTerm) {
+        ObservableList<PayrollDisplay> filtered = FXCollections.observableArrayList();
+        String lowerSearch = searchTerm.toLowerCase();
+
+        for (PayrollDisplay pd : payrollList) {
+            if (pd.getEmployeeName().toLowerCase().contains(lowerSearch) ||
+                    pd.getQrCode().toLowerCase().contains(lowerSearch)) {
+                filtered.add(pd);
+            }
+        }
+
+        payrollTable.setItems(filtered);
+    }
+
+    /**
+     * NEW - Handle employee selection from search
+     */
+    private void handleSelectEmployeeFromSearch() {
+        String selected = searchResultsList.getSelectionModel().getSelectedItem();
+        if (selected == null || selected.trim().isEmpty()) {
+            return;
+        }
+
+        try {
+            int start = selected.lastIndexOf("(") + 1;
+            int end = selected.lastIndexOf(")");
+
+            if (start > 0 && end > start) {
+                String qrCode = selected.substring(start, end).trim();
+
+                // Find employee in current payroll list
+                for (PayrollDisplay pd : payrollList) {
+                    if (pd.getQrCode().equals(qrCode)) {
+                        payrollTable.getSelectionModel().select(pd);
+                        payrollTable.scrollTo(pd);
+                        break;
+                    }
+                }
+
+                payrollSearchField.clear();
+                searchResultsList.getItems().clear();
+            }
+        } catch (Exception e) {
+            showError("Failed to select employee: " + e.getMessage());
+        }
+    }
+
     private void setupTableColumns() {
         qrCodeColumn.setCellValueFactory(new PropertyValueFactory<>("qrCode"));
         nameColumn.setCellValueFactory(new PropertyValueFactory<>("employeeName"));
         hoursColumn.setCellValueFactory(new PropertyValueFactory<>("hoursWorked"));
         hourlyRateColumn.setCellValueFactory(new PropertyValueFactory<>("hourlyRate"));
         baseSalaryColumn.setCellValueFactory(new PropertyValueFactory<>("baseSalary"));
+        govDeductionsColumn.setCellValueFactory(new PropertyValueFactory<>("govDeductions"));
         adjustmentColumn.setCellValueFactory(new PropertyValueFactory<>("adjustment"));
         netPayColumn.setCellValueFactory(new PropertyValueFactory<>("netPay"));
-        notesColumn.setCellValueFactory(new PropertyValueFactory<>("notes"));
+        statusColumn.setCellValueFactory(new PropertyValueFactory<>("holdStatus"));
 
         // Format columns
         hoursColumn.setCellFactory(col -> new TableCell<PayrollDisplay, Double>() {
@@ -142,6 +251,20 @@ public class PayrollController {
             protected void updateItem(Double item, boolean empty) {
                 super.updateItem(item, empty);
                 setText(empty || item == null ? "" : String.format("₱%,.2f", item));
+            }
+        });
+
+        // NEW - Gov Deductions column
+        govDeductionsColumn.setCellFactory(col -> new TableCell<PayrollDisplay, Double>() {
+            @Override
+            protected void updateItem(Double item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null || item == 0) {
+                    setText("");
+                } else {
+                    setText(String.format("-₱%,.2f", item));
+                    setStyle("-fx-text-fill: #d32f2f; -fx-font-weight: bold;");
+                }
             }
         });
 
@@ -172,6 +295,21 @@ public class PayrollController {
             }
         });
 
+        // NEW - Status column (Hold indicator)
+        statusColumn.setCellFactory(col -> new TableCell<PayrollDisplay, String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null || item.isEmpty()) {
+                    setText("");
+                    setStyle("");
+                } else {
+                    setText(item);
+                    setStyle("-fx-text-fill: #f44336; -fx-font-weight: bold;");
+                }
+            }
+        });
+
         actionsColumn.setCellFactory(col -> new TableCell<PayrollDisplay, Void>() {
             private final Button viewButton = new Button("📊 View");
 
@@ -194,9 +332,6 @@ public class PayrollController {
         payrollTable.setItems(payrollList);
     }
 
-    /**
-     * Load existing payroll from database (keeps data persistent)
-     */
     private void loadExistingPayroll() {
         try {
             payrollList.clear();
@@ -209,26 +344,34 @@ public class PayrollController {
                 Position pos = positionDAO.getPositionById(emp.getPositionId());
                 if (pos == null) continue;
 
-                // Calculate hours for display
                 YearMonth yearMonth = YearMonth.of(selectedYear, selectedMonth);
                 String startDate = yearMonth.atDay(1).toString();
                 String endDate = yearMonth.atEndOfMonth().toString();
                 double totalHours = attendanceDAO.getTotalHoursWorked(emp.getId(), startDate, endDate);
 
-                // Adjustment = final_salary - base_salary
-                double adjustment = payroll.getFinalSalary() - payroll.getBaseSalary();
+                // Calculate government deductions
+                GovernmentDeductionCalculator.GovernmentDeductions govDed =
+                        GovernmentDeductionCalculator.calculateAll(payroll.getBaseSalary());
+
+                // Get adjustments
+                double adjustment = adjustmentDAO.calculateTotalAdjustments(
+                        emp.getId(), startDate, endDate);
+
+                // Check if salary is held
+                boolean isHeld = salaryHoldDAO.isSalaryHeld(emp.getId());
+                String holdStatus = isHeld ? "🔒 HELD" : "";
 
                 payrollList.add(new PayrollDisplay(
                         emp.getId(), emp.getQrCode(), emp.getName(),
                         totalHours, pos.getHourlyRate(), payroll.getBaseSalary(),
-                        adjustment, payroll.getFinalSalary(), payroll.getNotes()
+                        govDed.total, adjustment, payroll.getFinalSalary(),
+                        holdStatus, payroll.getNotes()
                 ));
             }
 
-            System.out.println("✓ Loaded " + payrollList.size() + " payroll records from database");
+            System.out.println("✓ Loaded " + payrollList.size() + " payroll records");
 
         } catch (SQLException e) {
-            // No existing payroll, that's fine
             System.out.println("No existing payroll for " + selectedMonth + "/" + selectedYear);
         }
     }
@@ -238,38 +381,119 @@ public class PayrollController {
         selectedMonth = DateTimeHelper.getMonthNumber(monthCombo.getValue());
         selectedYear = yearCombo.getValue();
 
-        // First, try to load existing payroll
         loadExistingPayroll();
 
         if (!payrollList.isEmpty()) {
             Alert alert = new Alert(Alert.AlertType.INFORMATION);
             alert.setTitle("Existing Payroll Found");
-            alert.setHeaderText(payrollList.size() + " employee(s) already processed for " +
-                    monthCombo.getValue() + " " + selectedYear);
-            alert.setContentText("Payroll has been loaded from database.\n\n" +
-                    "To update with latest attendance:\n" +
-                    "• Click 'Recalculate Anyway' to override, OR\n" +
-                    "• Use 'Add Adjustment' for individual changes");
+            alert.setHeaderText(payrollList.size() + " employee(s) already processed");
+            alert.setContentText("Payroll loaded from database.\n\n" +
+                    "Options:\n" +
+                    "• Click 'Recalculate' to override with latest data\n" +
+                    "• Use 'Calculate Individual' for specific employees\n" +
+                    "• Use 'Add Adjustment' for bonuses/deductions");
 
-            ButtonType recalculateButton = new ButtonType("🔄 Recalculate Anyway", ButtonBar.ButtonData.OK_DONE);
-            ButtonType cancelButton = new ButtonType("Keep Existing", ButtonBar.ButtonData.CANCEL_CLOSE);
-            alert.getButtonTypes().setAll(recalculateButton, cancelButton);
+            ButtonType recalcBtn = new ButtonType("🔄 Recalculate All", ButtonBar.ButtonData.OK_DONE);
+            ButtonType cancelBtn = new ButtonType("Keep Existing", ButtonBar.ButtonData.CANCEL_CLOSE);
+            alert.getButtonTypes().setAll(recalcBtn, cancelBtn);
 
             Optional<ButtonType> result = alert.showAndWait();
-            if (result.isEmpty() || result.get() == cancelButton) {
+            if (result.isEmpty() || result.get() == cancelBtn) {
                 return;
             }
-            // User chose to recalculate - continue below
         }
 
-        // Calculate new payroll (or recalculate)
+        calculateAllPayroll();
+    }
+
+    /**
+     * NEW - Calculate individual employee payroll
+     */
+    @FXML
+    private void handleCalculateIndividual() {
+        PayrollDisplay selected = payrollTable.getSelectionModel().getSelectedItem();
+        if (selected == null) {
+            showWarning("Please select an employee first!");
+            return;
+        }
+
+        if (!DialogHelper.showConfirmation("Calculate Payroll",
+                "Recalculate payroll for " + selected.getEmployeeName() + "?\n\n" +
+                        "This will update their payroll with:\n" +
+                        "• Latest attendance hours\n" +
+                        "• Current government deductions\n" +
+                        "• All approved adjustments")) {
+            return;
+        }
+
+        try {
+            calculateIndividualPayroll(selected.getEmployeeId());
+            showInfo("✓ Payroll calculated for " + selected.getEmployeeName() + "!");
+            loadExistingPayroll();
+        } catch (SQLException e) {
+            showError("Calculation failed: " + e.getMessage());
+        }
+    }
+
+    private void calculateIndividualPayroll(int employeeId) throws SQLException {
+        Employee emp = employeeDAO.getEmployeeById(employeeId);
+        if (emp == null || !"active".equals(emp.getStatus())) return;
+
+        Position pos = positionDAO.getPositionById(emp.getPositionId());
+        if (pos == null) return;
+
+        YearMonth payrollPeriod = YearMonth.of(selectedYear, selectedMonth);
+        LocalDate payrollStart = payrollPeriod.atDay(1);
+        LocalDate payrollEnd = payrollPeriod.atEndOfMonth();
+
+        LocalDate hireDate = LocalDate.parse(emp.getHireDate());
+        if (hireDate.isAfter(payrollEnd)) {
+            showWarning(emp.getName() + " was hired after this payroll period");
+            return;
+        }
+
+        String startDate = payrollStart.toString();
+        String endDate = payrollEnd.toString();
+
+        double totalHours = attendanceDAO.getTotalHoursWorked(emp.getId(), startDate, endDate);
+        double hourlyRate = pos.getHourlyRate();
+        double baseSalary = totalHours * hourlyRate;
+
+        // Calculate government deductions
+        GovernmentDeductionCalculator.GovernmentDeductions govDed =
+                GovernmentDeductionCalculator.calculateAll(baseSalary);
+
+        // Get approved adjustments
+        double adjustment = adjustmentDAO.calculateTotalAdjustments(emp.getId(), startDate, endDate);
+
+        // Calculate final salary
+        double finalSalary = baseSalary - govDed.total + adjustment;
+
+        // Check if exists
+        Payroll existing = payrollDAO.getPayrollByEmployeeAndPeriod(emp.getId(), selectedMonth, selectedYear);
+
+        if (existing != null) {
+            existing.setBaseSalary(baseSalary);
+            existing.setTotalDeductions(govDed.total);
+            existing.setFinalSalary(finalSalary);
+            payrollDAO.updatePayroll(existing);
+        } else {
+            Payroll payroll = new Payroll(
+                    emp.getId(), selectedMonth, selectedYear,
+                    baseSalary, govDed.total, finalSalary,
+                    0, 0, DateTimeHelper.getCurrentDate(), ""
+            );
+            payrollDAO.addPayroll(payroll);
+        }
+    }
+
+    private void calculateAllPayroll() {
         try {
             payrollList.clear();
             List<Employee> employees = departmentFilterCombo.getValue() != null ?
                     employeeDAO.getEmployeesByDepartment(departmentFilterCombo.getValue().getId()) :
                     employeeDAO.getActiveEmployees();
 
-            // FIX: Create YearMonth for the selected period
             YearMonth payrollPeriod = YearMonth.of(selectedYear, selectedMonth);
             LocalDate payrollStart = payrollPeriod.atDay(1);
             LocalDate payrollEnd = payrollPeriod.atEndOfMonth();
@@ -279,12 +503,7 @@ public class PayrollController {
                 if (!"active".equals(emp.getStatus())) continue;
 
                 LocalDate hireDate = LocalDate.parse(emp.getHireDate());
-
-                // FIX: Employee should be included if hired on or before the LAST day of the payroll month
-                if (hireDate.isAfter(payrollEnd)) {
-                    System.out.println("Skipping " + emp.getName() + " - hired after payroll period");
-                    continue;
-                }
+                if (hireDate.isAfter(payrollEnd)) continue;
 
                 Position pos = positionDAO.getPositionById(emp.getPositionId());
                 if (pos == null) continue;
@@ -295,12 +514,24 @@ public class PayrollController {
                 double totalHours = attendanceDAO.getTotalHoursWorked(emp.getId(), startDate, endDate);
                 double hourlyRate = pos.getHourlyRate();
                 double baseSalary = totalHours * hourlyRate;
-                double adjustment = 0.0;
-                double netPay = baseSalary + adjustment;
+
+                // Calculate government deductions
+                GovernmentDeductionCalculator.GovernmentDeductions govDed =
+                        GovernmentDeductionCalculator.calculateAll(baseSalary);
+
+                // Get adjustments
+                double adjustment = adjustmentDAO.calculateTotalAdjustments(emp.getId(), startDate, endDate);
+
+                double netPay = baseSalary - govDed.total + adjustment;
+
+                // Check hold status
+                boolean isHeld = salaryHoldDAO.isSalaryHeld(emp.getId());
+                String holdStatus = isHeld ? "🔒 HELD" : "";
 
                 payrollList.add(new PayrollDisplay(
                         emp.getId(), emp.getQrCode(), emp.getName(),
-                        totalHours, hourlyRate, baseSalary, adjustment, netPay, ""
+                        totalHours, hourlyRate, baseSalary, govDed.total,
+                        adjustment, netPay, holdStatus, ""
                 ));
                 processed++;
             }
@@ -309,9 +540,11 @@ public class PayrollController {
                 showWarning("No employees found for the selected period!");
             } else {
                 showInfo("Payroll calculated for " + processed + " employees!\n\n" +
-                        "Based on: Hours Worked × Hourly Rate\n\n" +
-                        "⚠️ Click 'Process All' to save to database.\n" +
-                        "Data will NOT persist until you click 'Process All'!");
+                        "Includes:\n" +
+                        "• Hours worked × Hourly rate\n" +
+                        "• Government deductions (SSS, PhilHealth, Pag-IBIG)\n" +
+                        "• Approved adjustments\n\n" +
+                        "⚠️ Click 'Process All' to save to database.");
             }
 
         } catch (SQLException e) {
@@ -328,7 +561,7 @@ public class PayrollController {
         }
 
         if (!DialogHelper.showConfirmation("Process payroll for " + payrollList.size() + " employees?\n\n" +
-                "This will save all records to the database.")) {
+                "This will save all records to the database with government deductions.")) {
             return;
         }
 
@@ -336,56 +569,38 @@ public class PayrollController {
             String today = DateTimeHelper.getCurrentDate();
             int processed = 0;
             int updated = 0;
-            int skipped = 0;
 
             for (PayrollDisplay pd : payrollList) {
-                // Check if payroll already exists
                 Payroll existing = payrollDAO.getPayrollByEmployeeAndPeriod(
                         pd.getEmployeeId(), selectedMonth, selectedYear
                 );
 
                 if (existing != null) {
-                    // UPDATE existing payroll
                     existing.setBaseSalary(pd.getBaseSalary());
-                    existing.setTotalDeductions(0.0);
+                    existing.setTotalDeductions(pd.getGovDeductions());
                     existing.setFinalSalary(pd.getNetPay());
                     existing.setNotes(pd.getNotes());
-
                     payrollDAO.updatePayroll(existing);
                     updated++;
                 } else {
-                    // INSERT new payroll
                     Payroll payroll = new Payroll(
                             pd.getEmployeeId(), selectedMonth, selectedYear,
-                            pd.getBaseSalary(), 0.0, pd.getNetPay(),
+                            pd.getBaseSalary(), pd.getGovDeductions(), pd.getNetPay(),
                             0, 0, today, pd.getNotes()
                     );
-
                     payrollDAO.addPayroll(payroll);
                     processed++;
                 }
             }
 
-            String message = "Payroll Processing Complete!\n\n";
-            if (processed > 0) {
-                message += "New records: " + processed + " employees\n";
-            }
-            if (updated > 0) {
-                message += "Updated: " + updated + " employees\n";
-            }
-            if (skipped > 0) {
-                message += "Skipped: " + skipped + " (errors)\n";
-            }
-            message += "\n✓ Payroll data saved and will persist!";
+            showInfo("✓ Payroll Processing Complete!\n\n" +
+                    "New: " + processed + " | Updated: " + updated + "\n" +
+                    "Data saved with government deductions!");
 
-            showInfo(message);
-
-            // Reload from database to confirm save
             loadExistingPayroll();
 
         } catch (SQLException e) {
             showError("Processing failed: " + e.getMessage());
-            e.printStackTrace();
         }
     }
 
@@ -397,8 +612,15 @@ public class PayrollController {
             return;
         }
 
-        Dialog<Adjustment> dialog = new Dialog<>();
-        dialog.setTitle("Add Adjustment");
+        showAdjustmentDialog(selected);
+    }
+
+    /**
+     * NEW - Show adjustment dialog with full audit trail
+     */
+    private void showAdjustmentDialog(PayrollDisplay selected) {
+        Dialog<PayrollAdjustment> dialog = new Dialog<>();
+        dialog.setTitle("Add Payroll Adjustment");
         dialog.setHeaderText("Adjust salary for: " + selected.getEmployeeName());
 
         GridPane grid = new GridPane();
@@ -406,36 +628,33 @@ public class PayrollController {
         grid.setVgap(15);
         grid.setPadding(new Insets(20));
 
-        // Adjustment type
         ToggleGroup typeGroup = new ToggleGroup();
         RadioButton bonusRadio = new RadioButton("💰 Bonus");
-        RadioButton leaveRadio = new RadioButton("🏖️ Leave with Pay");
-        RadioButton overtimeRadio = new RadioButton("⏰ Overtime Hours");
+        RadioButton overtimeRadio = new RadioButton("⏰ Overtime");
+        RadioButton allowanceRadio = new RadioButton("🎁 Allowance");
         RadioButton deductionRadio = new RadioButton("📉 Deduction");
 
         bonusRadio.setToggleGroup(typeGroup);
-        leaveRadio.setToggleGroup(typeGroup);
         overtimeRadio.setToggleGroup(typeGroup);
+        allowanceRadio.setToggleGroup(typeGroup);
         deductionRadio.setToggleGroup(typeGroup);
         bonusRadio.setSelected(true);
 
-        VBox typeBox = new VBox(10, bonusRadio, leaveRadio, overtimeRadio, deductionRadio);
+        VBox typeBox = new VBox(10, bonusRadio, overtimeRadio, allowanceRadio, deductionRadio);
 
-        // Amount/Hours input
         TextField amountField = new TextField();
-        amountField.setPromptText("Enter amount or hours");
+        amountField.setPromptText("Enter amount");
 
-        // Notes
-        TextArea notesArea = new TextArea(selected.getNotes());
-        notesArea.setPromptText("E.g., 13th month pay, Holiday bonus, Medical leave, etc.");
-        notesArea.setPrefRowCount(3);
+        TextArea reasonArea = new TextArea();
+        reasonArea.setPromptText("Reason for adjustment (required)");
+        reasonArea.setPrefRowCount(3);
 
-        grid.add(new Label("Adjustment Type:"), 0, 0);
+        grid.add(new Label("Type:"), 0, 0);
         grid.add(typeBox, 1, 0);
-        grid.add(new Label("Amount/Hours:"), 0, 1);
+        grid.add(new Label("Amount:"), 0, 1);
         grid.add(amountField, 1, 1);
-        grid.add(new Label("Notes:"), 0, 2);
-        grid.add(notesArea, 1, 2);
+        grid.add(new Label("Reason:"), 0, 2);
+        grid.add(reasonArea, 1, 2);
 
         dialog.getDialogPane().setContent(grid);
         dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
@@ -443,54 +662,76 @@ public class PayrollController {
         dialog.setResultConverter(button -> {
             if (button == ButtonType.OK) {
                 try {
+                    String reason = reasonArea.getText().trim();
+                    if (reason.isEmpty()) {
+                        showError("Please provide a reason for this adjustment");
+                        return null;
+                    }
+
                     double value = Double.parseDouble(amountField.getText());
                     String type;
                     double adjustmentAmount;
 
                     if (bonusRadio.isSelected()) {
-                        type = "Bonus";
+                        type = "bonus";
                         adjustmentAmount = value;
-                    } else if (leaveRadio.isSelected()) {
-                        type = "Leave with Pay";
-                        adjustmentAmount = value * selected.getHourlyRate();
                     } else if (overtimeRadio.isSelected()) {
-                        type = "Overtime";
-                        adjustmentAmount = value * selected.getHourlyRate() * 1.5;
+                        type = "overtime";
+                        adjustmentAmount = value;
+                    } else if (allowanceRadio.isSelected()) {
+                        type = "allowance";
+                        adjustmentAmount = value;
                     } else {
-                        type = "Deduction";
+                        type = "deduction";
                         adjustmentAmount = -value;
                     }
 
-                    return new Adjustment(type, adjustmentAmount, notesArea.getText());
+                    PayrollAdjustment adjustment = new PayrollAdjustment(
+                            selected.getEmployeeId(),
+                            type,
+                            adjustmentAmount,
+                            reason,
+                            currentUserId,
+                            DateTimeHelper.getCurrentDate()
+                    );
+
+                    return adjustment;
+
                 } catch (NumberFormatException e) {
-                    showError("Please enter a valid number");
+                    showError("Please enter a valid amount");
                     return null;
                 }
             }
             return null;
         });
 
-        Optional<Adjustment> result = dialog.showAndWait();
+        Optional<PayrollAdjustment> result = dialog.showAndWait();
         result.ifPresent(adj -> {
-            double newAdjustment = selected.getAdjustment() + adj.amount;
-            double newNetPay = selected.getBaseSalary() + newAdjustment;
+            try {
+                adjustmentDAO.addAdjustment(adj);
 
-            selected.setAdjustment(newAdjustment);
-            selected.setNetPay(newNetPay);
-            selected.setNotes(adj.notes);
+                // Auto-approve if admin (you can add approval workflow later)
+                adjustmentDAO.approveAdjustment(adj.getId(), currentUserId, DateTimeHelper.getCurrentDate());
 
-            payrollTable.refresh();
+                showInfo("✓ Adjustment Added!\n\n" +
+                        "Type: " + adj.getAdjustmentType() + "\n" +
+                        "Amount: " + adj.getFormattedAmount() + "\n" +
+                        "Reason: " + adj.getReason() + "\n\n" +
+                        "Status: Approved\n" +
+                        "Recalculating payroll...");
 
-            showInfo("Adjustment Applied!\n\n" +
-                    "Type: " + adj.type + "\n" +
-                    "Amount: ₱" + String.format("%,.2f", adj.amount) + "\n" +
-                    "New Net Pay: ₱" + String.format("%,.2f", newNetPay) + "\n\n" +
-                    "⚠️ Remember to click 'Process All' to save!");
+                // Recalculate this employee's payroll
+                calculateIndividualPayroll(selected.getEmployeeId());
+                loadExistingPayroll();
+
+            } catch (SQLException e) {
+                showError("Failed to add adjustment: " + e.getMessage());
+            }
         });
     }
 
     @FXML
-    private void handleViewPayslip() {
+    private void handleViewAdjustments() {
         PayrollDisplay selected = payrollTable.getSelectionModel().getSelectedItem();
         if (selected == null) {
             showWarning("Please select an employee!");
@@ -499,285 +740,430 @@ public class PayrollController {
 
         try {
             Employee emp = employeeDAO.getEmployeeById(selected.getEmployeeId());
-            Position pos = positionDAO.getPositionById(emp.getPositionId());
-            Department dept = departmentDAO.getDepartmentById(emp.getDepartmentId());
+            List<PayrollAdjustment> adjustments =
+                    adjustmentDAO.getAdjustmentsByEmployee(emp.getId());
 
-            String payslip = generatePayslip(emp, pos, dept, selected);
+            if (adjustments.isEmpty()) {
+                showInfo("No adjustments found for " + emp.getName());
+                return;
+            }
+
+            StringBuilder history = new StringBuilder();
+            history.append("═══════════════════════════════════════════\n")
+                    .append("   ADJUSTMENT HISTORY\n")
+                    .append("   ").append(emp.getName()).append("\n")
+                    .append("═══════════════════════════════════════════\n\n");
+
+            double runningTotal = 0;
+
+            for (PayrollAdjustment adj : adjustments) {
+                runningTotal += adj.getAmount();
+
+                history.append(adj.getTypeEmoji())
+                        .append(" ")
+                        .append(adj.getAdjustmentType().toUpperCase())
+                        .append("\n")
+                        .append("   Amount: ").append(adj.getFormattedAmount()).append("\n")
+                        .append("   Running Total: ₱")
+                        .append(String.format("%,.2f", runningTotal)).append("\n")
+                        .append("   Reason: ").append(adj.getReason()).append("\n")
+                        .append("   Approved On: ").append(adj.getDateApproved()).append("\n")
+                        .append("───────────────────────────────────────────\n");
+            }
+
+            history.append(String.format("TOTAL ADJUSTMENTS: ₱%,.2f\n", runningTotal))
+                    .append("═══════════════════════════════════════════\n");
 
             Alert alert = new Alert(Alert.AlertType.INFORMATION);
-            alert.setTitle("Payslip - " + emp.getName());
-            alert.setHeaderText(null);
+            alert.setTitle("Adjustment History");
+            alert.setHeaderText(emp.getName() + " - Full Breakdown");
 
-            TextArea textArea = new TextArea(payslip);
+            TextArea textArea = new TextArea(history.toString());
             textArea.setEditable(false);
             textArea.setWrapText(true);
-            textArea.setPrefRowCount(25);
-            textArea.setStyle("-fx-font-family: 'Courier New'; -fx-font-size: 12px;");
+            textArea.setStyle("-fx-font-family: 'Courier New';");
 
             alert.getDialogPane().setContent(textArea);
-            alert.getDialogPane().setPrefWidth(650);
-
-            // Add Print button
-            ButtonType printButton = new ButtonType("🖨️ Print", ButtonBar.ButtonData.LEFT);
-            alert.getButtonTypes().add(0, printButton);
-
-            Optional<ButtonType> result = alert.showAndWait();
-            if (result.isPresent() && result.get() == printButton) {
-                handlePrintPayslip(payslip, emp.getName());
-            }
+            alert.getDialogPane().setPrefWidth(600);
+            alert.showAndWait();
 
         } catch (SQLException e) {
-            showError("Failed to generate payslip: " + e.getMessage());
+            showError("Failed to load adjustments: " + e.getMessage());
         }
     }
 
-    private void handlePrintPayslip(String payslip, String employeeName) {
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Save Payslip");
-        fileChooser.setInitialFileName("payslip_" + employeeName.replace(" ", "_") + ".txt");
-        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Text Files", "*.txt"));
-
-        Stage stage = (Stage) payrollTable.getScene().getWindow();
-        File file = fileChooser.showSaveDialog(stage);
-
-        if (file != null) {
-            try (PrintWriter writer = new PrintWriter(new FileWriter(file))) {
-                writer.print(payslip);
-                showInfo("Payslip saved!\n\n" + file.getAbsolutePath() + "\n\nYou can now print this file.");
-            } catch (Exception e) {
-                showError("Failed to save payslip: " + e.getMessage());
+    /**
+ * NEW - Hold/Release salary
+ */
+        @FXML
+        private void handleSalaryHold() {
+            PayrollDisplay selected = payrollTable.getSelectionModel().getSelectedItem();
+            if (selected == null) {
+                showWarning("Please select an employee!");
+                return;
             }
-        }
-    }
 
-    private String generatePayslip(Employee emp, Position pos, Department dept, PayrollDisplay pd) {
-        StringBuilder adjustmentDetails = new StringBuilder();
-        if (pd.getAdjustment() != 0) {
-            adjustmentDetails.append(String.format("Amount:           ₱%,.2f\n", pd.getAdjustment()));
-            if (!pd.getNotes().isEmpty()) {
-                adjustmentDetails.append(String.format("Details:          %s\n", pd.getNotes()));
-            }
-        } else {
-            adjustmentDetails.append("None\n");
-        }
+            try {
+                Employee emp = employeeDAO.getEmployeeById(selected.getEmployeeId());
+                boolean isHeld = salaryHoldDAO.isSalaryHeld(emp.getId());
 
-        return String.format(
-                "═══════════════════════════════════════════════\n" +
-                        "           HR PAYROLL SYSTEM\n" +
-                        "              EMPLOYEE PAYSLIP\n" +
-                        "               %s %d\n" +
-                        "═══════════════════════════════════════════════\n\n" +
-                        "EMPLOYEE INFORMATION\n" +
-                        "─────────────────────────────────────────────\n" +
-                        "Name:             %s\n" +
-                        "QR Code:          %s\n" +
-                        "Position:         %s\n" +
-                        "Department:       %s\n\n" +
-                        "COMPENSATION BREAKDOWN\n" +
-                        "─────────────────────────────────────────────\n" +
-                        "Hourly Rate:      ₱%.2f per hour\n" +
-                        "Hours Worked:     %.2f hours\n" +
-                        "Gross Pay:        ₱%,.2f\n" +
-                        "                  (%.2f hrs × ₱%.2f/hr)\n\n" +
-                        "ADJUSTMENTS\n" +
-                        "─────────────────────────────────────────────\n" +
-                        "%s\n" +
-                        "═══════════════════════════════════════════════\n" +
-                        "NET PAY:          ₱%,.2f\n" +
-                        "═══════════════════════════════════════════════\n\n" +
-                        "Processed: %s\n" +
-                        "This is a computer-generated payslip.\n",
-                monthCombo.getValue(), selectedYear,
-                emp.getName(), emp.getQrCode(),
-                pos.getTitle(), dept.getName(),
-                pd.getHourlyRate(), pd.getHoursWorked(), pd.getBaseSalary(),
-                pd.getHoursWorked(), pd.getHourlyRate(),
-                adjustmentDetails.toString(),
-                pd.getNetPay(),
-                LocalDateTime.now().format(DateTimeFormatter.ofPattern("MMM dd, yyyy hh:mm a"))
-        );
-    }
+                if (isHeld) {
+                    // Release salary
+                    if (DialogHelper.showConfirmation("Release Salary",
+                            "Release salary hold for " + emp.getName() + "?")) {
 
-    @FXML
-    private void handleSendPayslips() {
-        if (payrollList.isEmpty()) {
-            showWarning("No payroll data available!");
-            return;
-        }
+                        SalaryHold hold = salaryHoldDAO.getActiveHold(emp.getId());
+                        if (hold != null) {
+                            salaryHoldDAO.releaseSalary(hold.getId(), currentUserId, DateTimeHelper.getCurrentDate());
+                            showInfo("✓ Salary released for " + emp.getName());
+                            loadExistingPayroll();
+                        }
+                    }
+                } else {
+                    // Hold salary
+                    Dialog<String> dialog = new Dialog<>();
+                    dialog.setTitle("Hold Salary");
+                    dialog.setHeaderText("Hold salary for: " + emp.getName());
 
-        showInfo("📧 Email Payslips\n\n" +
-                "This feature requires email configuration.\n\n" +
-                "Current options:\n" +
-                "• View individual payslips and print\n" +
-                "• Export all payslips to text files\n\n" +
-                "Contact your system administrator to set up email functionality.");
-    }
+                    TextArea reasonArea = new TextArea();
+                    reasonArea.setPromptText("Enter reason for holding salary (required)");
+                    reasonArea.setPrefRowCount(4);
 
-    @FXML
-    private void handleExportPayroll() {
-        if (payrollList.isEmpty()) {
-            showWarning("No payroll data to export!");
-            return;
-        }
+                    dialog.getDialogPane().setContent(reasonArea);
+                    dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
 
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Save Payroll Summary");
-        fileChooser.setInitialFileName("payroll_" + monthCombo.getValue() + "_" + selectedYear + ".txt");
-        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Text Files", "*.txt"));
+                    dialog.setResultConverter(button -> {
+                        if (button == ButtonType.OK) {
+                            String reason = reasonArea.getText().trim();
+                            if (reason.isEmpty()) {
+                                showError("Please provide a reason");
+                                return null;
+                            }
+                            return reason;
+                        }
+                        return null;
+                    });
 
-        Stage stage = (Stage) payrollTable.getScene().getWindow();
-        File file = fileChooser.showSaveDialog(stage);
-
-        if (file != null) {
-            try (PrintWriter writer = new PrintWriter(new FileWriter(file))) {
-                // Header
-                writer.println("═══════════════════════════════════════════════════════════════");
-                writer.println("                    PAYROLL SUMMARY REPORT");
-                writer.println("                  " + monthCombo.getValue() + " " + selectedYear);
-                writer.println("═══════════════════════════════════════════════════════════════\n");
-
-                // Table header
-                writer.println(String.format("%-15s %-25s %10s %12s %12s %15s",
-                        "QR Code", "Name", "Hours", "Hourly Rate", "Base Salary", "Net Pay"));
-                writer.println("───────────────────────────────────────────────────────────────");
-
-                double totalHours = 0;
-                double totalBase = 0;
-                double totalNet = 0;
-
-                for (PayrollDisplay pd : payrollList) {
-                    writer.println(String.format("%-15s %-25s %10.2f ₱%11.2f ₱%11.2f ₱%14.2f",
-                            pd.getQrCode(),
-                            pd.getEmployeeName().length() > 25 ? pd.getEmployeeName().substring(0, 22) + "..." : pd.getEmployeeName(),
-                            pd.getHoursWorked(),
-                            pd.getHourlyRate(),
-                            pd.getBaseSalary(),
-                            pd.getNetPay()
-                    ));
-
-                    totalHours += pd.getHoursWorked();
-                    totalBase += pd.getBaseSalary();
-                    totalNet += pd.getNetPay();
+                    Optional<String> result = dialog.showAndWait();
+                    result.ifPresent(reason -> {
+                        try {
+                            SalaryHold hold = new SalaryHold(
+                                    emp.getId(),
+                                    reason,
+                                    DateTimeHelper.getCurrentDate(),
+                                    currentUserId,
+                                    ""
+                            );
+                            salaryHoldDAO.holdSalary(hold);
+                            showInfo("✓ Salary held for " + emp.getName() + "\n\nReason: " + reason);
+                            loadExistingPayroll();
+                        } catch (SQLException e) {
+                            showError("Failed to hold salary: " + e.getMessage());
+                        }
+                    });
                 }
 
-                writer.println("───────────────────────────────────────────────────────────────");
-                writer.println(String.format("%-15s %-25s %10.2f %12s ₱%11.2f ₱%14.2f",
-                        "", "TOTAL", totalHours, "", totalBase, totalNet));
-                writer.println("═══════════════════════════════════════════════════════════════");
-                writer.println("\nGenerated: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("MMM dd, yyyy hh:mm a")));
-                writer.println("Total Employees: " + payrollList.size());
-
-                showInfo("Export Successful!\n\n" +
-                        "Payroll summary saved to:\n" +
-                        file.getAbsolutePath() + "\n\n" +
-                        "You can now print this file.");
-
-            } catch (Exception e) {
-                showError("Export failed: " + e.getMessage());
-                e.printStackTrace();
-            }
-        }
-    }
-    @FXML
-    private void handleSearch() {
-        String searchTerm = payrollSearchField.getText().trim();
-
-        if (searchTerm.isEmpty()) {
-            // Reload from database
-            loadExistingPayroll();
-            return;
-        }
-
-        ObservableList<PayrollDisplay> filtered = FXCollections.observableArrayList();
-        String lowerSearch = searchTerm.toLowerCase();
-
-        for (PayrollDisplay pd : payrollList) {
-            if (pd.getEmployeeName().toLowerCase().contains(lowerSearch) ||
-                    pd.getQrCode().toLowerCase().contains(lowerSearch)) {
-                filtered.add(pd);
+            } catch (SQLException e) {
+                showError("Failed to process salary hold: " + e.getMessage());
             }
         }
 
-        payrollTable.setItems(filtered);
-    }
+        @FXML
+        private void handleViewPayslip() {
+            PayrollDisplay selected = payrollTable.getSelectionModel().getSelectedItem();
+            if (selected == null) {
+                showWarning("Please select an employee!");
+                return;
+            }
 
-    private void showError(String message) {
-        Alert alert = new Alert(Alert.AlertType.ERROR);
-        alert.setTitle("Error");
-        alert.setHeaderText(null);
-        alert.setContentText(message);
-        alert.showAndWait();
-    }
+            try {
+                Employee emp = employeeDAO.getEmployeeById(selected.getEmployeeId());
+                Position pos = positionDAO.getPositionById(emp.getPositionId());
+                Department dept = departmentDAO.getDepartmentById(emp.getDepartmentId());
 
-    private void showWarning(String message) {
-        Alert alert = new Alert(Alert.AlertType.WARNING);
-        alert.setTitle("Warning");
-        alert.setHeaderText(null);
-        alert.setContentText(message);
-        alert.showAndWait();
-    }
+                // Get government deductions breakdown
+                GovernmentDeductionCalculator.GovernmentDeductions govDed =
+                        GovernmentDeductionCalculator.calculateAll(selected.getBaseSalary());
 
-    private void showInfo(String message) {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("Information");
-        alert.setHeaderText(null);
-        alert.setContentText(message);
-        alert.showAndWait();
-    }
+                // Get adjustment history for this period
+                YearMonth yearMonth = YearMonth.of(selectedYear, selectedMonth);
+                String startDate = yearMonth.atDay(1).toString();
+                String endDate = yearMonth.atEndOfMonth().toString();
 
-    // ==================== INNER CLASSES ====================
+                List<PayrollAdjustment> adjustments = adjustmentDAO.getApprovedAdjustments(
+                        emp.getId(), startDate, endDate);
 
-    public static class PayrollDisplay {
-        private final int employeeId;
-        private final String qrCode;
-        private final String employeeName;
-        private final double hoursWorked;
-        private final double hourlyRate;
-        private final double baseSalary;
-        private double adjustment;
-        private double netPay;
-        private String notes;
+                String payslip = generateDetailedPayslip(emp, pos, dept, selected, govDed, adjustments);
 
-        public PayrollDisplay(int employeeId, String qrCode, String employeeName,
-                              double hoursWorked, double hourlyRate, double baseSalary,
-                              double adjustment, double netPay, String notes) {
-            this.employeeId = employeeId;
-            this.qrCode = qrCode;
-            this.employeeName = employeeName;
-            this.hoursWorked = hoursWorked;
-            this.hourlyRate = hourlyRate;
-            this.baseSalary = baseSalary;
-            this.adjustment = adjustment;
-            this.netPay = netPay;
-            this.notes = notes;
+                Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                alert.setTitle("Payslip - " + emp.getName());
+                alert.setHeaderText(null);
+
+                TextArea textArea = new TextArea(payslip);
+                textArea.setEditable(false);
+                textArea.setWrapText(true);
+                textArea.setPrefRowCount(30);
+                textArea.setStyle("-fx-font-family: 'Courier New'; -fx-font-size: 12px;");
+
+                alert.getDialogPane().setContent(textArea);
+                alert.getDialogPane().setPrefWidth(700);
+
+                ButtonType printButton = new ButtonType("🖨️ Print", ButtonBar.ButtonData.LEFT);
+                alert.getButtonTypes().add(0, printButton);
+
+                Optional<ButtonType> result = alert.showAndWait();
+                if (result.isPresent() && result.get() == printButton) {
+                    handlePrintPayslip(payslip, emp.getName());
+                }
+
+            } catch (SQLException e) {
+                showError("Failed to generate payslip: " + e.getMessage());
+            }
         }
 
-        // Getters
-        public int getEmployeeId() { return employeeId; }
-        public String getQrCode() { return qrCode; }
-        public String getEmployeeName() { return employeeName; }
-        public double getHoursWorked() { return hoursWorked; }
-        public double getHourlyRate() { return hourlyRate; }
-        public double getBaseSalary() { return baseSalary; }
-        public double getAdjustment() { return adjustment; }
-        public double getNetPay() { return netPay; }
-        public String getNotes() { return notes; }
+        private String generateDetailedPayslip(Employee emp, Position pos, Department dept,
+                PayrollDisplay pd,
+                GovernmentDeductionCalculator.GovernmentDeductions govDed,
+                List<PayrollAdjustment> adjustments) {
+            StringBuilder sb = new StringBuilder();
 
-        // Setters
-        public void setAdjustment(double adjustment) { this.adjustment = adjustment; }
-        public void setNetPay(double netPay) { this.netPay = netPay; }
-        public void setNotes(String notes) { this.notes = notes; }
-    }
+            sb.append("═══════════════════════════════════════════════\n");
+            sb.append("           HR PAYROLL SYSTEM\n");
+            sb.append("              EMPLOYEE PAYSLIP\n");
+            sb.append(String.format("               %s %d\n", monthCombo.getValue(), selectedYear));
+            sb.append("═══════════════════════════════════════════════\n\n");
 
-    private static class Adjustment {
-        final String type;
-        final double amount;
-        final String notes;
+            sb.append("EMPLOYEE INFORMATION\n");
+            sb.append("─────────────────────────────────────────────\n");
+            sb.append(String.format("Name:             %s\n", emp.getName()));
+            sb.append(String.format("QR Code:          %s\n", emp.getQrCode()));
+            sb.append(String.format("Position:         %s\n", pos.getTitle()));
+            sb.append(String.format("Department:       %s\n\n", dept.getName()));
 
-        Adjustment(String type, double amount, String notes) {
-            this.type = type;
-            this.amount = amount;
-            this.notes = notes;
+            sb.append("COMPENSATION BREAKDOWN\n");
+            sb.append("─────────────────────────────────────────────\n");
+            sb.append(String.format("Hourly Rate:      ₱%.2f per hour\n", pd.getHourlyRate()));
+            sb.append(String.format("Hours Worked:     %.2f hours\n", pd.getHoursWorked()));
+            sb.append(String.format("Gross Pay:        ₱%,.2f\n", pd.getBaseSalary()));
+            sb.append(String.format("                  (%.2f hrs × ₱%.2f/hr)\n\n",
+                    pd.getHoursWorked(), pd.getHourlyRate()));
+
+            sb.append("GOVERNMENT DEDUCTIONS\n");
+            sb.append("─────────────────────────────────────────────\n");
+            sb.append(String.format("SSS:              -₱%,.2f\n", govDed.sss));
+            sb.append(String.format("PhilHealth:       -₱%,.2f\n", govDed.philHealth));
+            sb.append(String.format("Pag-IBIG:         -₱%,.2f\n", govDed.pagIbig));
+            sb.append(String.format("Total Deductions: -₱%,.2f\n\n", govDed.total));
+
+            sb.append("ADJUSTMENTS\n");
+            sb.append("─────────────────────────────────────────────\n");
+
+            if (adjustments.isEmpty()) {
+                sb.append("None\n\n");
+            } else {
+                for (PayrollAdjustment adj : adjustments) {
+                    sb.append(String.format("%s %-12s  %s\n",
+                            adj.getTypeEmoji(),
+                            adj.getAdjustmentType() + ":",
+                            adj.getFormattedAmount()));
+                    sb.append(String.format("  Reason: %s\n", adj.getReason()));
+                    sb.append(String.format("  Date: %s\n", adj.getDateApproved()));
+                }
+                sb.append(String.format("\nTotal Adjustments: ₱%,.2f\n\n", pd.getAdjustment()));
+            }
+
+            // Check if held
+            try {
+                if (salaryHoldDAO.isSalaryHeld(emp.getId())) {
+                    SalaryHold hold = salaryHoldDAO.getActiveHold(emp.getId());
+                    sb.append("🔒 SALARY HOLD NOTICE\n");
+                    sb.append("─────────────────────────────────────────────\n");
+                    sb.append(String.format("Status:           HELD\n"));
+                    sb.append(String.format("Since:            %s\n", hold.getHoldDate()));
+                    sb.append(String.format("Reason:           %s\n\n", hold.getReason()));
+                }
+            } catch (SQLException e) {
+                // Ignore
+            }
+
+            sb.append("═══════════════════════════════════════════════\n");
+            sb.append(String.format("NET PAY:          ₱%,.2f\n", pd.getNetPay()));
+            sb.append("═══════════════════════════════════════════════\n\n");
+
+            sb.append(String.format("Processed: %s\n",
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("MMM dd, yyyy hh:mm a"))));
+            sb.append("This is a computer-generated payslip.\n");
+
+            return sb.toString();
+        }
+
+        private void handlePrintPayslip(String payslip, String employeeName) {
+            FileChooser fileChooser = new FileChooser();
+            fileChooser.setTitle("Save Payslip");
+            fileChooser.setInitialFileName("payslip_" + employeeName.replace(" ", "_") + ".txt");
+            fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Text Files", "*.txt"));
+
+            Stage stage = (Stage) payrollTable.getScene().getWindow();
+            File file = fileChooser.showSaveDialog(stage);
+
+            if (file != null) {
+                try (PrintWriter writer = new PrintWriter(new FileWriter(file))) {
+                    writer.print(payslip);
+                    showInfo("Payslip saved!\n\n" + file.getAbsolutePath());
+                } catch (Exception e) {
+                    showError("Failed to save payslip: " + e.getMessage());
+                }
+            }
+        }
+
+        @FXML
+        private void handleExportPayroll() {
+            if (payrollList.isEmpty()) {
+                showWarning("No payroll data to export!");
+                return;
+            }
+
+            FileChooser fileChooser = new FileChooser();
+            fileChooser.setTitle("Save Payroll Summary");
+            fileChooser.setInitialFileName("payroll_" + monthCombo.getValue() + "_" + selectedYear + ".txt");
+            fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Text Files", "*.txt"));
+
+            Stage stage = (Stage) payrollTable.getScene().getWindow();
+            File file = fileChooser.showSaveDialog(stage);
+
+            if (file != null) {
+                try (PrintWriter writer = new PrintWriter(new FileWriter(file))) {
+                    writer.println("═══════════════════════════════════════════════════════════════════════");
+                    writer.println("                    PAYROLL SUMMARY REPORT");
+                    writer.println("                  " + monthCombo.getValue() + " " + selectedYear);
+                    writer.println("═══════════════════════════════════════════════════════════════════════\n");
+
+                    writer.println(String.format("%-15s %-25s %10s %12s %12s %12s %15s",
+                            "QR Code", "Name", "Hours", "Gross", "Gov Ded", "Adjust", "Net Pay"));
+                    writer.println("───────────────────────────────────────────────────────────────────────");
+
+                    double totalGross = 0;
+                    double totalGov = 0;
+                    double totalAdj = 0;
+                    double totalNet = 0;
+
+                    for (PayrollDisplay pd : payrollList) {
+                        writer.println(String.format("%-15s %-25s %10.2f ₱%11.2f ₱%11.2f ₱%11.2f ₱%14.2f %s",
+                                pd.getQrCode(),
+                                pd.getEmployeeName().length() > 25 ? pd.getEmployeeName().substring(0, 22) + "..." : pd.getEmployeeName(),
+                                pd.getHoursWorked(),
+                                pd.getBaseSalary(),
+                                pd.getGovDeductions(),
+                                pd.getAdjustment(),
+                                pd.getNetPay(),
+                                pd.getHoldStatus()
+                        ));
+
+                        totalGross += pd.getBaseSalary();
+                        totalGov += pd.getGovDeductions();
+                        totalAdj += pd.getAdjustment();
+                        totalNet += pd.getNetPay();
+                    }
+
+                    writer.println("───────────────────────────────────────────────────────────────────────");
+                    writer.println(String.format("%-15s %-25s %10s ₱%11.2f ₱%11.2f ₱%11.2f ₱%14.2f",
+                            "", "TOTAL", "", totalGross, totalGov, totalAdj, totalNet));
+                    writer.println("═══════════════════════════════════════════════════════════════════════");
+                    writer.println("\nGenerated: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("MMM dd, yyyy hh:mm a")));
+                    writer.println("Total Employees: " + payrollList.size());
+
+                    showInfo("✓ Export Successful!\n\n" +
+                            "Payroll summary saved to:\n" + file.getAbsolutePath());
+
+                } catch (Exception e) {
+                    showError("Export failed: " + e.getMessage());
+                }
+            }
+        }
+
+        @FXML
+        private void handleSearch() {
+            String searchTerm = payrollSearchField.getText().trim();
+            if (searchTerm.isEmpty()) {
+                loadExistingPayroll();
+                return;
+            }
+            filterPayrollTable(searchTerm);
+        }
+
+        private void showError(String message) {
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Error");
+            alert.setHeaderText(null);
+            alert.setContentText(message);
+            alert.showAndWait();
+        }
+
+        private void showWarning(String message) {
+            Alert alert = new Alert(Alert.AlertType.WARNING);
+            alert.setTitle("Warning");
+            alert.setHeaderText(null);
+            alert.setContentText(message);
+            alert.showAndWait();
+        }
+
+        private void showInfo(String message) {
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Information");
+            alert.setHeaderText(null);
+            alert.setContentText(message);
+            alert.showAndWait();
+        }
+
+// ==================== INNER CLASS ====================
+
+        public static class PayrollDisplay {
+            private final int employeeId;
+            private final String qrCode;
+            private final String employeeName;
+            private final double hoursWorked;
+            private final double hourlyRate;
+            private final double baseSalary;
+            private final double govDeductions;
+            private double adjustment;
+            private double netPay;
+            private String holdStatus;
+            private String notes;
+
+            public PayrollDisplay(int employeeId, String qrCode, String employeeName,
+                                  double hoursWorked, double hourlyRate, double baseSalary,
+                                  double govDeductions, double adjustment, double netPay,
+                                  String holdStatus, String notes) {
+                this.employeeId = employeeId;
+                this.qrCode = qrCode;
+                this.employeeName = employeeName;
+                this.hoursWorked = hoursWorked;
+                this.hourlyRate = hourlyRate;
+                this.baseSalary = baseSalary;
+                this.govDeductions = govDeductions;
+                this.adjustment = adjustment;
+                this.netPay = netPay;
+                this.holdStatus = holdStatus;
+                this.notes = notes;
+            }
+
+            // Getters
+            public int getEmployeeId() { return employeeId; }
+            public String getQrCode() { return qrCode; }
+            public String getEmployeeName() { return employeeName; }
+            public double getHoursWorked() { return hoursWorked; }
+            public double getHourlyRate() { return hourlyRate; }
+            public double getBaseSalary() { return baseSalary; }
+            public double getGovDeductions() { return govDeductions; }
+            public double getAdjustment() { return adjustment; }
+            public double getNetPay() { return netPay; }
+            public String getHoldStatus() { return holdStatus; }
+            public String getNotes() { return notes; }
+
+            // Setters
+            public void setAdjustment(double adjustment) { this.adjustment = adjustment; }
+            public void setNetPay(double netPay) { this.netPay = netPay; }
+            public void setHoldStatus(String holdStatus) { this.holdStatus = holdStatus; }
+            public void setNotes(String notes) { this.notes = notes; }
         }
     }
-}

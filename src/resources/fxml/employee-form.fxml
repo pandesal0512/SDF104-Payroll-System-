@@ -6,6 +6,7 @@
 <?import javafx.scene.control.DatePicker?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.Separator?>
 <?import javafx.scene.control.TextField?>
 <?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.ColumnConstraints?>
@@ -15,43 +16,61 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<ScrollPane fitToWidth="true" prefHeight="860.0" prefWidth="504.0" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controllers.EmployeeFormController">
+<ScrollPane fitToWidth="true" minWidth="500.0" prefHeight="783.0" prefWidth="656.0" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controllers.EmployeeFormController">
     <content>
-        <VBox spacing="20.0" style="-fx-background-color: white;">
+        <VBox minWidth="450.0" spacing="20.0" style="-fx-background-color: white;">
             <padding>
                 <Insets bottom="20.0" left="30.0" right="30.0" top="20.0" />
             </padding>
 
             <children>
-
+                <!-- Title -->
                 <Label fx:id="formTitleLabel" style="-fx-font-weight: bold;" text="➕ ADD NEW EMPLOYEE">
                     <font>
                         <Font size="24.0" />
                     </font>
                 </Label>
 
+                <!-- Profile Picture Section -->
+                <VBox alignment="CENTER" spacing="10.0" style="-fx-border-color: #4CAF50; -fx-border-width: 2; -fx-border-radius: 5; -fx-padding: 15; -fx-background-color: #E8F5E9;">
+                    <children>
+                        <Label style="-fx-font-weight: bold; -fx-font-size: 16px;" text="📷 Profile Picture" />
 
+                        <ImageView fx:id="profilePictureView" fitHeight="150.0" fitWidth="150.0" preserveRatio="true" style="-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 10, 0, 0, 0);" />
+
+                        <Label fx:id="photoStatusLabel" style="-fx-font-size: 12px; -fx-text-fill: gray;" text="No photo selected" />
+
+                        <HBox alignment="CENTER" spacing="10.0">
+                            <children>
+                                <Button fx:id="uploadPhotoButton" onAction="#handleUploadPhoto" style="-fx-background-color: #2196F3; -fx-text-fill: white;" text="📤 Upload Photo" />
+                                <Button fx:id="removePhotoButton" disable="true" onAction="#handleRemovePhoto" style="-fx-background-color: #f44336; -fx-text-fill: white;" text="🗑️ Remove" />
+                            </children>
+                        </HBox>
+
+                        <Label style="-fx-font-size: 11px; -fx-text-fill: #666; -fx-font-style: italic;" text="Max size: 5MB | Formats: JPG, PNG, GIF" />
+                    </children>
+                </VBox>
+
+                <!-- Personal Information -->
                 <VBox spacing="10.0">
                     <children>
-                        <Label style="-fx-font-weight: bold; -fx-font-size: 16px;" text="Personal Information" />
+                        <Label style="-fx-font-weight: bold; -fx-font-size: 16px;" text="📋 Personal Information" />
 
                         <GridPane hgap="10.0" vgap="10.0">
                             <columnConstraints>
-                                <ColumnConstraints percentWidth="30" />
-                                <ColumnConstraints percentWidth="70" />
+                                <ColumnConstraints minWidth="100.0" percentWidth="30" />
+                                <ColumnConstraints minWidth="200.0" percentWidth="70" />
                             </columnConstraints>
-
 
                             <Label text="Full Name:" GridPane.rowIndex="0" />
                             <TextField fx:id="nameField" promptText="Enter full name" GridPane.columnIndex="1" GridPane.rowIndex="0" />
 
-
                             <Label text="Age:" GridPane.rowIndex="1" />
                             <TextField fx:id="ageField" prefWidth="100.0" promptText="Enter age" GridPane.columnIndex="1" GridPane.rowIndex="1" />
 
-
                             <Label text="Contact Info:" GridPane.rowIndex="2" />
                             <TextField fx:id="contactField" promptText="Email or phone number" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+
                             <rowConstraints>
                                 <RowConstraints />
                                 <RowConstraints />
@@ -61,55 +80,88 @@
                     </children>
                 </VBox>
 
+                <Separator />
 
+                <!-- Emergency Contact Section -->
                 <VBox spacing="10.0">
                     <children>
-                        <Label style="-fx-font-weight: bold; -fx-font-size: 16px;" text="Employment Details" />
+                        <Label style="-fx-font-weight: bold; -fx-font-size: 16px;" text="🚨 Emergency Contact" />
+                        <Label style="-fx-font-size: 12px; -fx-text-fill: #666; -fx-font-style: italic;" text="Optional - Person to contact in case of emergency" />
 
                         <GridPane hgap="10.0" vgap="10.0">
                             <columnConstraints>
-                                <ColumnConstraints percentWidth="30" />
-                                <ColumnConstraints percentWidth="70" />
+                                <ColumnConstraints minWidth="100.0" percentWidth="30" />
+                                <ColumnConstraints minWidth="200.0" percentWidth="70" />
                             </columnConstraints>
 
+                            <Label text="Contact Name:" GridPane.rowIndex="0" />
+                            <TextField fx:id="emergencyContactNameField" promptText="Emergency contact name" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+
+                            <Label text="Contact Phone:" GridPane.rowIndex="1" />
+                            <TextField fx:id="emergencyContactPhoneField" promptText="Emergency contact phone" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+
+                            <rowConstraints>
+                                <RowConstraints />
+                                <RowConstraints />
+                            </rowConstraints>
+                        </GridPane>
+                    </children>
+                </VBox>
+
+                <Separator />
+
+                <!-- Employment Details -->
+                <VBox spacing="10.0">
+                    <children>
+                        <Label style="-fx-font-weight: bold; -fx-font-size: 16px;" text="💼 Employment Details" />
+
+                        <GridPane hgap="10.0" vgap="10.0">
+                            <columnConstraints>
+                                <ColumnConstraints minWidth="100.0" percentWidth="30" />
+                                <ColumnConstraints minWidth="200.0" percentWidth="70" />
+                            </columnConstraints>
 
                             <Label text="Department:" GridPane.rowIndex="0" />
                             <ComboBox fx:id="departmentCombo" maxWidth="Infinity" promptText="Select Department" GridPane.columnIndex="1" GridPane.rowIndex="0" />
 
-
                             <Label text="Position:" GridPane.rowIndex="1" />
                             <ComboBox fx:id="positionCombo" maxWidth="Infinity" promptText="Select Position" GridPane.columnIndex="1" GridPane.rowIndex="1" />
 
+                            <!-- NEW - Shift Selection -->
+                            <Label text="Work Shift:" GridPane.rowIndex="2" />
+                            <ComboBox fx:id="shiftCombo" maxWidth="Infinity" promptText="Select Shift (Optional)" GridPane.columnIndex="1" GridPane.rowIndex="2" />
 
-                            <Label text="Hire Date:" GridPane.rowIndex="2" />
-                            <DatePicker fx:id="hireDatePicker" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+                            <Label text="Hire Date:" GridPane.rowIndex="3" />
+                            <DatePicker fx:id="hireDatePicker" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.rowIndex="3" />
 
+                            <Label text="Status:" GridPane.rowIndex="4" />
+                            <ComboBox fx:id="statusCombo" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.rowIndex="4" />
 
-                            <Label text="Status:" GridPane.rowIndex="3" />
-                            <ComboBox fx:id="statusCombo" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.rowIndex="3" />
                             <rowConstraints>
+                                <RowConstraints />
                                 <RowConstraints />
                                 <RowConstraints />
                                 <RowConstraints />
                                 <RowConstraints />
                             </rowConstraints>
                         </GridPane>
+
+                        <Label style="-fx-font-size: 11px; -fx-text-fill: #666; -fx-font-style: italic;" text="💡 Tip: Each employee can have their own shift schedule" />
                     </children>
                 </VBox>
 
+                <Separator />
 
+                <!-- QR Code Section -->
                 <VBox alignment="CENTER" spacing="10.0" style="-fx-border-color: #cccccc; -fx-border-radius: 5; -fx-padding: 15;">
                     <children>
-                        <Label style="-fx-font-weight: bold; -fx-font-size: 16px;" text="Employee QR Code / ID" />
-
+                        <Label style="-fx-font-weight: bold; -fx-font-size: 16px;" text="🔖 Employee QR Code / ID" />
 
                         <ImageView fx:id="qrImageView" fitHeight="200.0" fitWidth="200.0" preserveRatio="true" />
-
 
                         <Label fx:id="qrCodeLabel" style="-fx-font-size: 14px; -fx-font-weight: bold;" text="EMP-2024-XXX-NAME" />
 
                         <Label style="-fx-font-size: 11px; -fx-text-fill: gray;" text="(Employee types this for attendance)" />
-
 
                         <HBox alignment="CENTER" spacing="10.0">
                             <children>
@@ -120,7 +172,7 @@
                     </children>
                 </VBox>
 
-
+                <!-- Action Buttons -->
                 <HBox alignment="CENTER" spacing="15.0">
                     <children>
                         <Button onAction="#handleSave" style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10 30;" text="💾 Save Employee" />

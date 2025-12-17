@@ -43,7 +43,7 @@
                     </HBox>
 
                     <!-- Departments Table -->
-                    <TableView fx:id="departmentsTable" style="-fx-fixed-cell-size: 35; -fx-font-size: 15;" VBox.vgrow="ALWAYS">
+                    <TableView fx:id="departmentsTable" style="-fx-fixed-cell-size: 35; -fx-font-size: 18;" VBox.vgrow="ALWAYS">
                         <columns>
                             <TableColumn fx:id="deptIdColumn" prefWidth="80.0" text="ID" />
                             <TableColumn fx:id="deptNameColumn" prefWidth="792.0" text="Department Name" />
@@ -79,7 +79,7 @@
                     </HBox>
 
                     <!-- Positions Table -->
-                    <TableView fx:id="positionsTable" style="-fx-fixed-cell-size: 35; -fx-font-size: 15;" VBox.vgrow="ALWAYS">
+                    <TableView fx:id="positionsTable" style="-fx-fixed-cell-size: 35; -fx-font-size: 18;" VBox.vgrow="ALWAYS">
                         <columns>
                             <TableColumn fx:id="posIdColumn" prefWidth="80.0" text="ID" />
                             <TableColumn fx:id="posTitleColumn" prefWidth="532.0" text="Position Title" />

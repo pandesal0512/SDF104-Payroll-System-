@@ -10,7 +10,7 @@
     <version>2.0</version>
     <packaging>jar</packaging>
 
-    <name>HR Payroll & Attendance System</name>
+    <name>HR Payroll &amp; Attendance System</name>
     <description>Complete payroll and attendance management system with JavaFX</description>
 
     <properties>
@@ -67,19 +67,33 @@
             <version>3.5.3</version>
         </dependency>
 
-        <!-- Apache POI for Excel Export (optional) -->
+        <!-- Apache POI for Excel Export -->
         <dependency>
             <groupId>org.apache.poi</groupId>
             <artifactId>poi-ooxml</artifactId>
             <version>5.2.5</version>
         </dependency>
 
-        <!-- JUnit for Testing (optional) -->
+        <!-- JUnit for Testing -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <version>5.10.1</version>
             <scope>test</scope>
+        </dependency>
+
+        <!-- ✅ JavaMail API for Email Functionality -->
+        <dependency>
+            <groupId>com.sun.mail</groupId>
+            <artifactId>javax.mail</artifactId>
+            <version>1.6.2</version>
+        </dependency>
+
+        <!-- ✅ JavaBeans Activation Framework (required by JavaMail) -->
+        <dependency>
+            <groupId>javax.activation</groupId>
+            <artifactId>activation</artifactId>
+            <version>1.1.1</version>
         </dependency>
     </dependencies>
 

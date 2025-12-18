@@ -13,17 +13,25 @@ import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import models.*;
 import utils.*;
-
+import utils.EmailService;
+import javafx.scene.control.PasswordField;  // ← For email settings dialog
+import java.time.YearMonth;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+import java.util.Optional;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.PrintWriter;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Optional;
+
 
 public class PayrollController {
 
@@ -376,6 +384,326 @@ public class PayrollController {
         }
     }
 
+    // ═══════════════════════════════════════════════════════════════
+// EMAIL PAYSLIP METHODS
+// Copy these methods to your PayrollController class
+// Add them after your existing methods (before the closing brace)
+// ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Email payslip to selected employee
+     */
+    @FXML
+    private void handleEmailPayslip() {
+        PayrollDisplay selected = payrollTable.getSelectionModel().getSelectedItem();
+        if (selected == null) {
+            showWarning("Please select an employee!");
+            return;
+        }
+
+        try {
+            Employee emp = employeeDAO.getEmployeeById(selected.getEmployeeId());
+
+            // Validate email
+            if (emp.getContactInfo() == null || !emp.getContactInfo().contains("@")) {
+                showError("No valid email address found for " + emp.getName() +
+                        "\n\nPlease update employee contact info with a valid email.");
+                return;
+            }
+
+            // Confirm before sending
+            Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
+            confirmAlert.setTitle("Email Payslip");
+            confirmAlert.setHeaderText("Send payslip to " + emp.getName() + "?");
+            confirmAlert.setContentText("Email: " + emp.getContactInfo() + "\n" +
+                    "Period: " + monthCombo.getValue() + " " + selectedYear);
+
+            Optional<ButtonType> result = confirmAlert.showAndWait();
+            if (result.isEmpty() || result.get() != ButtonType.OK) {
+                return;
+            }
+
+            // Generate payslip content
+            Position pos = positionDAO.getPositionById(emp.getPositionId());
+            Department dept = departmentDAO.getDepartmentById(emp.getDepartmentId());
+            GovernmentDeductionCalculator.GovernmentDeductions govDed =
+                    GovernmentDeductionCalculator.calculateAll(selected.getBaseSalary());
+
+            YearMonth yearMonth = YearMonth.of(selectedYear, selectedMonth);
+            String startDate = yearMonth.atDay(1).toString();
+            String endDate = yearMonth.atEndOfMonth().toString();
+            List<PayrollAdjustment> adjustments = adjustmentDAO.getApprovedAdjustments(
+                    emp.getId(), startDate, endDate);
+
+            String payslip = generateDetailedPayslip(emp, pos, dept, selected, govDed, adjustments);
+
+            // Send email
+            showInfo("⏳ Sending email...\n\nPlease wait...");
+            boolean success = EmailService.sendPayslip(
+                    emp, payslip, monthCombo.getValue(), selectedYear);
+
+            if (success) {
+                showInfo("Payslip Sent Successfully!\n\n" +
+                        "Email sent to: " + emp.getContactInfo() + "\n" +
+                        "Employee: " + emp.getName());
+            } else {
+                showError("Failed to send email!\n\n" +
+                        "Please check:\n" +
+                        "• Email configuration is correct\n" +
+                        "• Employee email is valid\n" +
+                        "• Internet connection is active\n\n" +
+                        "Run 'Email Settings' to configure email first.");
+            }
+
+        } catch (SQLException e) {
+            showError("Failed to generate payslip: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Email payslips to ALL employees in current payroll
+     */
+    @FXML
+    private void handleEmailAllPayslips() {
+        if (payrollList.isEmpty()) {
+            showWarning("No payroll data available!\n\nPlease calculate payroll first.");
+            return;
+        }
+
+        // Count employees with valid emails
+        int validEmails = 0;
+        int invalidEmails = 0;
+        StringBuilder noEmailList = new StringBuilder();
+
+        for (PayrollDisplay pd : payrollList) {
+            try {
+                Employee emp = employeeDAO.getEmployeeById(pd.getEmployeeId());
+                if (emp.getContactInfo() != null && emp.getContactInfo().contains("@")) {
+                    validEmails++;
+                } else {
+                    invalidEmails++;
+                    noEmailList.append("  • ").append(emp.getName()).append("\n");
+                }
+            } catch (SQLException e) {
+                invalidEmails++;
+            }
+        }
+
+        // Show confirmation with summary
+        String message = String.format(
+                "Send payslips to %d employee(s)?\n\n" +
+                        "Valid emails: %d\n" +
+                        "Invalid/missing emails: %d\n\n" +
+                        "Period: %s %d\n\n" +
+                        "This may take a few minutes...",
+                payrollList.size(), validEmails, invalidEmails,
+                monthCombo.getValue(), selectedYear
+        );
+
+        if (invalidEmails > 0) {
+            message += "\n\n Employees without valid emails:\n" + noEmailList.toString();
+        }
+
+        Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
+        confirmAlert.setTitle("Email All Payslips");
+        confirmAlert.setHeaderText("Batch Email Confirmation");
+        confirmAlert.setContentText(message);
+
+        Optional<ButtonType> confirmResult = confirmAlert.showAndWait();
+        if (confirmResult.isEmpty() || confirmResult.get() != ButtonType.OK) {
+            return;
+        }
+
+        // Prepare payslips
+        java.util.List<EmailService.EmployeePayslip> payslips = new java.util.ArrayList<>();
+
+        try {
+            for (PayrollDisplay pd : payrollList) {
+                Employee emp = employeeDAO.getEmployeeById(pd.getEmployeeId());
+
+                // Skip if no valid email
+                if (emp.getContactInfo() == null || !emp.getContactInfo().contains("@")) {
+                    continue;
+                }
+
+                Position pos = positionDAO.getPositionById(emp.getPositionId());
+                Department dept = departmentDAO.getDepartmentById(emp.getDepartmentId());
+                GovernmentDeductionCalculator.GovernmentDeductions govDed =
+                        GovernmentDeductionCalculator.calculateAll(pd.getBaseSalary());
+
+                YearMonth yearMonth = YearMonth.of(selectedYear, selectedMonth);
+                String startDate = yearMonth.atDay(1).toString();
+                String endDate = yearMonth.atEndOfMonth().toString();
+                List<PayrollAdjustment> adjustments = adjustmentDAO.getApprovedAdjustments(
+                        emp.getId(), startDate, endDate);
+
+                String payslip = generateDetailedPayslip(emp, pos, dept, pd, govDed, adjustments);
+                payslips.add(new EmailService.EmployeePayslip(emp, payslip));
+            }
+
+            if (payslips.isEmpty()) {
+                showWarning("No employees with valid email addresses!");
+                return;
+            }
+
+            // Show progress
+            showInfo("⏳ Sending " + payslips.size() + " email(s)...\n\n" +
+                    "Please wait, this may take a few minutes...\n" +
+                    "DO NOT close the application.");
+
+            // Send batch emails (this will take time)
+            EmailService.EmailSummary summary = EmailService.sendBatchPayslips(
+                    payslips, monthCombo.getValue(), selectedYear);
+
+            // Show results
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Email Batch Complete");
+            alert.setHeaderText("Payslip Distribution Summary");
+
+            TextArea textArea = new TextArea(summary.toString());
+            textArea.setEditable(false);
+            textArea.setWrapText(true);
+            textArea.setPrefRowCount(15);
+
+            alert.getDialogPane().setContent(textArea);
+            alert.showAndWait();
+
+        } catch (SQLException e) {
+            showError("Batch email failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Configure email settings
+     */
+    @FXML
+    private void handleEmailSettings() {
+        Dialog<EmailConfig> dialog = new Dialog<>();
+        dialog.setTitle("Email Configuration");
+        dialog.setHeaderText("Configure SMTP Settings for Payslip Emails");
+
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(15);
+        grid.setPadding(new Insets(20));
+
+        TextField companyNameField = new TextField();
+        companyNameField.setPromptText("ABC Corporation");
+        companyNameField.setPrefWidth(300);
+
+        TextField emailField = new TextField();
+        emailField.setPromptText("hr@company.com");
+        emailField.setPrefWidth(300);
+
+        PasswordField passwordField = new PasswordField();
+        passwordField.setPromptText("App Password (not regular password)");
+        passwordField.setPrefWidth(300);
+
+        Label helpLabel = new Label(
+                "📧 For Gmail:\n" +
+                        "1. Enable 2-Factor Authentication\n" +
+                        "2. Generate App Password:\n" +
+                        "   Google Account → Security → App Passwords\n" +
+                        "3. Use the 16-character app password here"
+        );
+        helpLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #666;");
+        helpLabel.setWrapText(true);
+        helpLabel.setPrefWidth(300);
+
+        grid.add(new Label("Company Name:"), 0, 0);
+        grid.add(companyNameField, 1, 0);
+        grid.add(new Label("Sender Email:"), 0, 1);
+        grid.add(emailField, 1, 1);
+        grid.add(new Label("App Password:"), 0, 2);
+        grid.add(passwordField, 1, 2);
+        grid.add(helpLabel, 1, 3);
+
+        dialog.getDialogPane().setContent(grid);
+
+        ButtonType testButton = new ButtonType("Test Connection", ButtonBar.ButtonData.LEFT);
+        dialog.getDialogPane().getButtonTypes().addAll(
+                ButtonType.OK,
+                testButton,
+                ButtonType.CANCEL
+        );
+
+        // Handle test button
+        Button testBtn = (Button) dialog.getDialogPane().lookupButton(testButton);
+        testBtn.addEventFilter(javafx.event.ActionEvent.ACTION, event -> {
+            String company = companyNameField.getText().trim();
+            String email = emailField.getText().trim();
+            String password = passwordField.getText().trim();
+
+            if (company.isEmpty() || email.isEmpty() || password.isEmpty()) {
+                showWarning("Please fill in all fields first!");
+            } else {
+                EmailService.configure(email, password, company);
+                if (EmailService.testEmailConfiguration()) {
+                    showInfo(" Connection Successful!\n\nEmail configuration is valid.");
+                } else {
+                    showError(" Connection Failed!\n\nPlease check your settings.");
+                }
+            }
+            event.consume(); // Don't close dialog
+        });
+
+        dialog.setResultConverter(button -> {
+            if (button == ButtonType.OK) {
+                return new EmailConfig(
+                        companyNameField.getText().trim(),
+                        emailField.getText().trim(),
+                        passwordField.getText().trim()
+                );
+            }
+            return null;
+        });
+
+        Optional<EmailConfig> result = dialog.showAndWait();
+        result.ifPresent(config -> {
+            if (config.isValid()) {
+                // Configure email service
+                EmailService.configure(config.email, config.password, config.companyName);
+
+                // Test connection
+                if (EmailService.testEmailConfiguration()) {
+                    showInfo(" Email Configured Successfully!\n\n" +
+                            "Company: " + config.companyName + "\n" +
+                            "Email: " + config.email + "\n\n" +
+                            "You can now send payslips via email.");
+
+                    // TODO: Save config to database/file
+                } else {
+                    showError(" Email Configuration Failed!\n\n" +
+                            "Please check your settings and try again.");
+                }
+            } else {
+                showWarning("Please fill in all fields!");
+            }
+        });
+    }
+
+    /**
+     * Email configuration holder
+     */
+    private static class EmailConfig {
+        final String companyName;
+        final String email;
+        final String password;
+
+        EmailConfig(String companyName, String email, String password) {
+            this.companyName = companyName;
+            this.email = email;
+            this.password = password;
+        }
+
+        boolean isValid() {
+            return companyName != null && !companyName.trim().isEmpty() &&
+                    email != null && email.contains("@") &&
+                    password != null && !password.trim().isEmpty();
+        }
+    }
+
+
     @FXML
     private void handleCalculatePayroll() {
         selectedMonth = DateTimeHelper.getMonthNumber(monthCombo.getValue());
@@ -393,7 +721,7 @@ public class PayrollController {
                     "• Use 'Calculate Individual' for specific employees\n" +
                     "• Use 'Add Adjustment' for bonuses/deductions");
 
-            ButtonType recalcBtn = new ButtonType("🔄 Recalculate All", ButtonBar.ButtonData.OK_DONE);
+            ButtonType recalcBtn = new ButtonType(" Recalculate All", ButtonBar.ButtonData.OK_DONE);
             ButtonType cancelBtn = new ButtonType("Keep Existing", ButtonBar.ButtonData.CANCEL_CLOSE);
             alert.getButtonTypes().setAll(recalcBtn, cancelBtn);
 
@@ -544,7 +872,7 @@ public class PayrollController {
                         "• Hours worked × Hourly rate\n" +
                         "• Government deductions (SSS, PhilHealth, Pag-IBIG)\n" +
                         "• Approved adjustments\n\n" +
-                        "⚠️ Click 'Process All' to save to database.");
+                        " Click 'Process All' to save to database.");
             }
 
         } catch (SQLException e) {
@@ -629,10 +957,10 @@ public class PayrollController {
         grid.setPadding(new Insets(20));
 
         ToggleGroup typeGroup = new ToggleGroup();
-        RadioButton bonusRadio = new RadioButton("💰 Bonus");
-        RadioButton overtimeRadio = new RadioButton("⏰ Overtime");
-        RadioButton allowanceRadio = new RadioButton("🎁 Allowance");
-        RadioButton deductionRadio = new RadioButton("📉 Deduction");
+        RadioButton bonusRadio = new RadioButton(" Bonus");
+        RadioButton overtimeRadio = new RadioButton(" Overtime");
+        RadioButton allowanceRadio = new RadioButton(" Allowance");
+        RadioButton deductionRadio = new RadioButton(" Deduction");
 
         bonusRadio.setToggleGroup(typeGroup);
         overtimeRadio.setToggleGroup(typeGroup);
@@ -976,7 +1304,7 @@ public class PayrollController {
             try {
                 if (salaryHoldDAO.isSalaryHeld(emp.getId())) {
                     SalaryHold hold = salaryHoldDAO.getActiveHold(emp.getId());
-                    sb.append("🔒 SALARY HOLD NOTICE\n");
+                    sb.append(" SALARY HOLD NOTICE\n");
                     sb.append("─────────────────────────────────────────────\n");
                     sb.append(String.format("Status:           HELD\n"));
                     sb.append(String.format("Since:            %s\n", hold.getHoldDate()));

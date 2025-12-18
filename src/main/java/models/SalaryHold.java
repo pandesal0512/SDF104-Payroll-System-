@@ -111,7 +111,7 @@ public class SalaryHold {
         if (isActive()) {
             return String.format("🔒 ACTIVE HOLD - %s (since %s)", reason, holdDate);
         } else {
-            return String.format("🔓 Released - %s (held: %s to %s)",
+            return String.format(" Released - %s (held: %s to %s)",
                     reason, holdDate, releaseDate);
         }
     }

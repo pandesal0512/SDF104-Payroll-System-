@@ -9,20 +9,15 @@
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 
-<BorderPane xmlns="http://javafx.com/javafx/24.0.1"
-            xmlns:fx="http://javafx.com/fxml/1"
-            fx:controller="controllers.MainController"
-            style="-fx-background-color: white;">
+<BorderPane style="-fx-background-color: white;" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controllers.MainController">
 
     <!-- ================= TOP BAR ================= -->
     <top>
-        <HBox alignment="CENTER_LEFT"
-              style="-fx-border-color: #a7adbc; -fx-border-width: 0 0 2 0;">
+        <HBox alignment="CENTER_LEFT" style="-fx-border-color: #a7adbc; -fx-border-width: 0 0 2 0;">
             <children>
-                <Label text="HR Payroll &amp; Attendance System"
-                       style="-fx-font-size: 32px; -fx-font-weight: bold;">
+                <Label style="-fx-font-size: 32px; -fx-font-weight: bold;" text="HR Payroll &amp; Attendance System">
                     <padding>
-                        <Insets top="15" bottom="15" left="25"/>
+                        <Insets bottom="15" left="25" top="15" />
                     </padding>
                 </Label>
             </children>
@@ -31,58 +26,32 @@
 
     <!-- ================= SIDEBAR ================= -->
     <left>
-        <VBox spacing="15"
-              prefWidth="240"
-              style="-fx-border-color: #a7adbc; -fx-border-width: 0 2 0 0;">
+        <VBox prefWidth="240" spacing="15" style="-fx-border-color: #a7adbc; -fx-border-width: 0 2 0 0;">
 
             <padding>
-                <Insets top="20" left="15" right="15"/>
+                <Insets left="15" right="15" top="20" />
             </padding>
 
-            <Button fx:id="dashboardButton"
-                    maxWidth="Infinity"
-                    onAction="#loadDashboard"
-                    style="-fx-background-color: white; -fx-font-size: 16px;"
-                    text="📊 Dashboard"/>
+            <Button fx:id="dashboardButton" maxWidth="Infinity" onAction="#loadDashboard" style="-fx-background-color: white; -fx-font-size: 20;" text="📊 Dashboard" />
 
-            <Button fx:id="employeesButton"
-                    maxWidth="Infinity"
-                    onAction="#loadEmployees"
-                    style="-fx-background-color: white; -fx-font-size: 16px;"
-                    text="👥 Employees"/>
+            <Button fx:id="employeesButton" maxWidth="Infinity" onAction="#loadEmployees" style="-fx-background-color: white; -fx-font-size: 20;" text="👥 Employees" />
 
-            <Button fx:id="attendanceButton"
-                    maxWidth="Infinity"
-                    onAction="#loadAttendance"
-                    style="-fx-background-color: white; -fx-font-size: 16px;"
-                    text="📋 Attendance"/>
+            <Button fx:id="attendanceButton" maxWidth="Infinity" onAction="#loadAttendance" style="-fx-background-color: white; -fx-font-size: 20;" text="📋 Attendance" />
 
-            <Button fx:id="payrollButton"
-                    maxWidth="Infinity"
-                    onAction="#loadPayroll"
-                    style="-fx-background-color: white; -fx-font-size: 16px;"
-                    text="💰 Payroll"/>
+            <Button fx:id="payrollButton" maxWidth="Infinity" onAction="#loadPayroll" style="-fx-background-color: white; -fx-font-size: 20;" text="💰 Payroll" />
 
-            <Button fx:id="departmentsButton"
-                    maxWidth="Infinity"
-                    onAction="#loadDepartments"
-                    style="-fx-background-color: white; -fx-font-size: 16px;"
-                    text="🏢 Depts &amp; Positions"/>
+            <Button fx:id="departmentsButton" maxWidth="Infinity" onAction="#loadDepartments" style="-fx-background-color: white; -fx-font-size: 20;" text="🏢 Depts &amp; Positions" />
 
             <!-- PUSH EXIT BUTTON DOWN -->
-            <Region VBox.vgrow="ALWAYS"/>
+            <Region VBox.vgrow="ALWAYS" />
 
-            <Button onAction="#handleExit"
-                    maxWidth="Infinity"
-                    style="-fx-background-color: #f44336; -fx-text-fill: white; -fx-font-size: 16px;"
-                    text="🚪 Exit"/>
+            <Button maxWidth="Infinity" onAction="#handleExit" style="-fx-background-color: #f44336; -fx-text-fill: white; -fx-font-size: 20;" text="🚪 Exit" />
         </VBox>
     </left>
 
     <!-- ================= CONTENT ================= -->
     <center>
-        <StackPane fx:id="contentArea"
-                   style="-fx-background-color: white;"/>
+        <StackPane fx:id="contentArea" style="-fx-background-color: white;" />
     </center>
 
 </BorderPane>

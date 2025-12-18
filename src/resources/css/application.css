@@ -1,9 +1,5 @@
-/*
- * HR Payroll System - Main Stylesheet
- * Place this in: src/main/resources/css/application.css
- */
 
-/* ========== ROOT VARIABLES ========== */
+
 :root {
     -fx-primary-color: #4CAF50;
     -fx-secondary-color: #2196F3;
@@ -25,14 +21,14 @@
     -fx-shadow: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
 }
 
-/* ========== GENERAL STYLES ========== */
+
 .root {
     -fx-font-family: "Segoe UI", Arial, sans-serif;
     -fx-font-size: 14px;
     -fx-background-color: -fx-background-secondary;
 }
 
-/* ========== LABELS ========== */
+
 .label {
     -fx-text-fill: -fx-text-primary;
 }
@@ -60,7 +56,7 @@
     -fx-padding: 10 0 5 0;
 }
 
-/* ========== BUTTONS ========== */
+
 .button {
     -fx-background-color: -fx-background-primary;
     -fx-border-color: -fx-border-color;
@@ -125,7 +121,7 @@
     -fx-background-color: derive(-fx-warning-color, -10%);
 }
 
-/* ========== TEXT FIELDS ========== */
+
 .text-field {
     -fx-background-color: -fx-background-primary;
     -fx-border-color: -fx-border-color;
@@ -140,7 +136,7 @@
     -fx-border-width: 2px;
 }
 
-/* ========== COMBO BOXES ========== */
+
 .combo-box {
     -fx-background-color: -fx-background-primary;
     -fx-border-color: -fx-border-color;
@@ -169,7 +165,7 @@
     -fx-text-fill: -fx-text-white;
 }
 
-/* ========== TABLE VIEWS ========== */
+
 .table-view {
     -fx-background-color: -fx-background-primary;
     -fx-border-color: -fx-border-color;
@@ -212,7 +208,7 @@
     -fx-alignment: CENTER-LEFT;
 }
 
-/* ========== CARDS / PANELS ========== */
+
 .card {
     -fx-background-color: -fx-background-primary;
     -fx-border-color: -fx-border-color;
@@ -229,7 +225,7 @@
     -fx-padding: 0 0 15 0;
 }
 
-/* ========== INFO BOXES ========== */
+
 .info-box {
     -fx-background-color: derive(-fx-info-color, 80%);
     -fx-border-color: -fx-info-color;
@@ -266,7 +262,7 @@
     -fx-padding: 15;
 }
 
-/* ========== SCROLLBAR ========== */
+
 .scroll-bar:vertical {
     -fx-background-color: transparent;
 }
@@ -287,7 +283,7 @@
     -fx-background-color: -fx-text-secondary;
 }
 
-/* ========== NAVIGATION BUTTONS ========== */
+
 .nav-button {
     -fx-background-color: transparent;
     -fx-text-fill: -fx-text-primary;
@@ -308,7 +304,7 @@
     -fx-font-weight: bold;
 }
 
-/* ========== STATUS INDICATORS ========== */
+
 .status-active {
     -fx-background-color: -fx-success-color;
     -fx-text-fill: -fx-text-white;
@@ -345,7 +341,7 @@
     -fx-font-weight: bold;
 }
 
-/* ========== PROFILE PICTURE ========== */
+
 .profile-picture {
     -fx-effect: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
 }
@@ -356,7 +352,7 @@
     -fx-border-radius: 75px;
 }
 
-/* ========== DATE PICKER ========== */
+
 .date-picker {
     -fx-background-color: -fx-background-primary;
     -fx-border-color: -fx-border-color;
@@ -370,7 +366,6 @@
     -fx-border-width: 2px;
 }
 
-/* ========== SEPARATOR ========== */
 .separator {
     -fx-padding: 10 0;
 }
@@ -380,7 +375,7 @@
     -fx-border-width: 1px 0 0 0;
 }
 
-/* ========== TAB PANE ========== */
+
 .tab-pane {
     -fx-background-color: -fx-background-primary;
     -fx-border-color: -fx-border-color;
@@ -408,7 +403,7 @@
     -fx-background-color: derive(-fx-background-primary, -3%);
 }
 
-/* ========== PROGRESS BAR ========== */
+
 .progress-bar {
     -fx-accent: -fx-primary-color;
 }
@@ -423,7 +418,7 @@
     -fx-background-radius: 4px;
 }
 
-/* ========== TOOLTIPS ========== */
+
 .tooltip {
     -fx-background-color: -fx-background-dark;
     -fx-text-fill: -fx-text-white;
@@ -432,7 +427,7 @@
     -fx-background-radius: 4px;
 }
 
-/* ========== CONTEXT MENU ========== */
+
 .context-menu {
     -fx-background-color: -fx-background-primary;
     -fx-border-color: -fx-border-color;
@@ -445,7 +440,7 @@
     -fx-background-color: derive(-fx-secondary-color, 80%);
 }
 
-/* ========== LIST VIEW ========== */
+
 .list-view {
     -fx-background-color: -fx-background-primary;
     -fx-border-color: -fx-border-color;
@@ -467,7 +462,7 @@
     -fx-text-fill: -fx-text-white;
 }
 
-/* ========== RESPONSIVE FONT SIZES ========== */
+
 @media (max-width: 1024px) {
     .root {
         -fx-font-size: 12px;

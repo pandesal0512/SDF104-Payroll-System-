@@ -30,7 +30,16 @@
         <!-- Generate Payroll Section -->
         <VBox spacing="10.0" style="-fx-border-color: #2196F3; -fx-border-width: 2; -fx-border-radius: 5; -fx-padding: 15; -fx-background-color: #E3F2FD; -fx-font-size: 15;">
 
-            <Label style="-fx-font-weight: bold; -fx-font-size: 16px;" text="Generate Payroll (Based on Hours × Hourly Rate)" />
+            <HBox alignment="CENTER_LEFT" spacing="10.0">
+                <Label style="-fx-font-weight: bold; -fx-font-size: 16px;" text="Generate Payroll (Based on Hours × Hourly Rate)" />
+                <Region HBox.hgrow="ALWAYS" />
+
+                <Button onAction="#handleEmailAllPayslips" style="-fx-background-color: #009688; -fx-text-fill: white; -fx-padding: 8 15; -fx-font-size: 12;" text="📧 Email All" />
+
+
+                <Button onAction="#handleEmailPayslip" style="-fx-background-color: #00BCD4; -fx-text-fill: white; -fx-padding: 8 15; -fx-font-size: 12;" text="📧 Email Payslip" />
+                <Button onAction="#handleEmailSettings" style="-fx-background-color: #FF9800; -fx-text-fill: white; -fx-padding: 8 15; -fx-font-size: 12px;" text="⚙️ Email Settings" />
+            </HBox>
 
             <HBox alignment="CENTER_LEFT" spacing="15.0" style="-fx-font-size: 15;">
 
@@ -49,11 +58,15 @@
                     <ComboBox fx:id="departmentFilterCombo" prefWidth="200.0" />
                 </VBox>
 
-                <Button onAction="#handleCalculatePayroll" style="-fx-background-color: #2196F3;                                -fx-text-fill: white;                                -fx-padding: 10 20;                                -fx-font-size: 14px;" text="📊 Calculate Payroll">
+                <Button onAction="#handleCalculatePayroll" style="-fx-background-color: #2196F3; -fx-text-fill: white; -fx-padding: 10 20; -fx-font-size: 14px;" text="📊 Calculate Payroll">
                     <VBox.margin>
                         <Insets top="20.0" />
                     </VBox.margin>
                 </Button>
+
+                <Button onAction="#handleExportPayroll" style="-fx-background-color: #607D8B; -fx-text-fill: white; -fx-padding: 10 20; -fx-font-size: 14;" text="📥 Export" />
+
+                <Button onAction="#handleProcessAll" style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 10 20; -fx-font-size: 14;" text="💾 Process All" />
 
             </HBox>
         </VBox>
@@ -81,7 +94,6 @@
                     <TableColumn fx:id="govDeductionsColumn" prefWidth="170.0" text="Gov. Deductions" />
                     <TableColumn fx:id="adjustmentColumn" prefWidth="154.0" text="Adjustment" />
 
-                    <!-- ✅ REQUIRED FOR HOLD SALARY FEATURE -->
                     <TableColumn fx:id="statusColumn" prefWidth="154.0" text="Status" />
 
                     <TableColumn fx:id="netPayColumn" prefWidth="122.0" text="Net Pay" />
@@ -103,11 +115,12 @@
 
                 <Button onAction="#handleManualAdjustment" style="-fx-background-color: #FF9800; -fx-text-fill: white; -fx-padding: 12 25;" text="💰 Add Adjustment" />
 
+                <Button onAction="#handleViewAdjustments" style="-fx-background-color: #9C27B0; -fx-text-fill: white; -fx-padding: 12 25;" text="📋 View Adjustments" />
+
+
+                <Button onAction="#handleSalaryHold" style="-fx-background-color: #f44336; -fx-text-fill: white; -fx-padding: 12 25;" text="🔒 Hold/Release" />
+
                 <Button onAction="#handleViewPayslip" style="-fx-background-color: #2196F3; -fx-text-fill: white; -fx-padding: 12 25;" text="📊 View Payslip" />
-
-                <Button onAction="#handleProcessAll" style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 12 25;" text="💾 Process All" />
-
-                <Button onAction="#handleExportPayroll" style="-fx-background-color: #607D8B; -fx-text-fill: white; -fx-padding: 12 25;" text="📥 Export" />
             </HBox>
 
         </VBox>
